@@ -6,6 +6,7 @@ const INITIAL = {
   detect:   null,
   flood:    null,
   fire:     null,
+  carcrash: null,
 }
 
 /** Manages the multi-call analysis flow for a single uploaded image.
@@ -31,6 +32,7 @@ export function useAnalysis(file) {
       detect:   api.detect,
       flood:    api.detectFlood,
       fire:     api.detectFire,
+      carcrash: api.detectCarCrash,
     }[key]
     if (!fn) return
     setLoading(key)
@@ -48,7 +50,7 @@ export function useAnalysis(file) {
   const runAll = useCallback(async () => {
     if (!file) return
     await run('classify')()
-    await Promise.all([run('detect')(), run('flood')(), run('fire')()])
+    await Promise.all([run('detect')(), run('flood')(), run('fire')(), run('carcrash')()])
   }, [file, run])
 
   return { results, errors, loading, run, runAll, reset }

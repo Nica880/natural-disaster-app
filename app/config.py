@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     generic_detector_weights: Path = REPO_ROOT / "yolov8n-oiv7.pt"
     flood_segmenter_weights: Path = REPO_ROOT / "runs" / "segment" / "flood_seg" / "weights" / "best.pt"
     fire_detector_weights: Path = REPO_ROOT / "model" / "fire.pt"
+    carcrash_detector_weights: Path = REPO_ROOT / "model" / "carcrash.pt"
 
     # --- Inference defaults ----------------------------------------------
     detect_conf_threshold: float = 0.25

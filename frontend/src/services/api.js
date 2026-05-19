@@ -15,9 +15,10 @@ async function postImage(path, file) {
 }
 
 export const api = {
-  classify:    (file) => postImage('/api/v1/classify',      file),
-  detect:      (file) => postImage('/api/v1/detect',        file),
-  detectFire:  (file) => postImage('/api/v1/detect/fire',   file),
-  detectFlood: (file) => postImage('/api/v1/detect/flood',  file),
-  health:      () => fetch(`${API_BASE}/health`).then(r => r.json()),
+  classify:        (file) => postImage('/api/v1/classify',         file),
+  detect:          (file) => postImage('/api/v1/detect',           file),
+  detectFire:      (file) => postImage('/api/v1/detect/fire',      file),
+  detectFlood:     (file) => postImage('/api/v1/detect/flood',     file),
+  detectCarCrash:  (file) => postImage('/api/v1/detect/carcrash',  file),
+  health:          () => fetch(`${API_BASE}/health`).then(r => r.json()),
 }

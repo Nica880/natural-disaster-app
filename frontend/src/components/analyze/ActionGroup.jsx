@@ -1,11 +1,12 @@
-import { Brain, ScanSearch, Droplets, Flame, Play } from 'lucide-react'
+import { Brain, ScanSearch, Droplets, Flame, Car, Play } from 'lucide-react'
 import Button from '../ui/Button'
 
 const ACTIONS = [
-  { key: 'classify', label: 'Classify',       icon: Brain,      variant: 'primary',   hint: 'ResNet-18 scene class' },
-  { key: 'detect',   label: 'Objects',        icon: ScanSearch, variant: 'secondary', hint: 'YOLO · Open Images V7' },
-  { key: 'flood',    label: 'Flood mask',     icon: Droplets,   variant: 'flood',     hint: 'YOLOv8-seg' },
-  { key: 'fire',     label: 'Fire & smoke',   icon: Flame,      variant: 'fire',      hint: 'YOLOv8 · D-Fire' },
+  { key: 'classify', label: 'Classify',     icon: Brain,      variant: 'primary',   hint: 'ResNet-18 scene class' },
+  { key: 'detect',   label: 'Objects',      icon: ScanSearch, variant: 'secondary', hint: 'YOLO · Open Images V7' },
+  { key: 'flood',    label: 'Flood mask',   icon: Droplets,   variant: 'flood',     hint: 'YOLOv8-seg · FloodNet' },
+  { key: 'fire',     label: 'Fire & smoke', icon: Flame,      variant: 'fire',      hint: 'YOLOv8 · D-Fire' },
+  { key: 'carcrash', label: 'Car crash',    icon: Car,        variant: 'secondary', hint: 'YOLOv8 · Accident Det.' },
 ]
 
 export default function ActionGroup({ disabled, loading, onRun, onRunAll }) {
@@ -24,7 +25,7 @@ export default function ActionGroup({ disabled, loading, onRun, onRunAll }) {
           Run all
         </Button>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
         {ACTIONS.map(a => (
           <button
             key={a.key}
@@ -35,9 +36,10 @@ export default function ActionGroup({ disabled, loading, onRun, onRunAll }) {
           >
             <div className="flex items-center gap-2">
               <a.icon className={`size-4 ${
-                a.key === 'fire'  ? 'text-orange-600' :
-                a.key === 'flood' ? 'text-blue-600' :
+                a.key === 'fire'     ? 'text-orange-600' :
+                a.key === 'flood'    ? 'text-blue-600' :
                 a.key === 'classify' ? 'text-indigo-600' :
+                a.key === 'carcrash' ? 'text-zinc-700' :
                 'text-slate-700'
               }`} />
               <span className="font-medium text-sm text-slate-900">{a.label}</span>

@@ -1,4 +1,4 @@
-import { Brain, ScanSearch, Droplets, Flame, Server, Cpu, Database, Layers, ExternalLink } from 'lucide-react'
+import { Brain, ScanSearch, Droplets, Flame, Car, Server, Cpu, Database, Layers, ExternalLink } from 'lucide-react'
 import Card, { CardHeader } from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 
@@ -7,6 +7,7 @@ const ACCENT = {
   slate:  'bg-slate-100 text-slate-700',
   fire:   'bg-orange-100 text-orange-700',
   flood:  'bg-blue-100 text-blue-700',
+  crash:  'bg-zinc-100 text-zinc-700',
 }
 
 const MODELS = [
@@ -33,10 +34,17 @@ const MODELS = [
   },
   {
     icon: Droplets, accent: ACCENT.flood,  label: 'Flood segmenter',
-    model: 'YOLOv8n-seg',
-    dataset: '“Flood Amateur Video” semantic segmentation set',
+    model: 'YOLOv8s-seg',
+    dataset: 'FloodNet 2021 · 2.3 k aerial images · 10 classes (post-Harvey UAV)',
     output: 'Pixel-level flooded-area mask + scene class counts',
-    href: 'https://data.mendeley.com/datasets/3kzr8mt8s2/5',
+    href: 'https://github.com/BinaLab/FloodNet-Supervised_v1.0',
+  },
+  {
+    icon: Car, accent: ACCENT.crash, label: 'Car-crash detector',
+    model: 'YOLOv8s',
+    dataset: 'Roboflow accident-detection-model · 3.2 k images · YOLO bbox',
+    output: 'Accident regions, severity tier (minor/moderate/major), crew recommendation',
+    href: 'https://universe.roboflow.com/accident-detection-model/accident-detection-model',
   },
 ]
 

@@ -5,6 +5,7 @@ import ClassifyCard from '../components/analyze/results/ClassifyCard'
 import DetectCard from '../components/analyze/results/DetectCard'
 import FloodCard from '../components/analyze/results/FloodCard'
 import FireCard from '../components/analyze/results/FireCard'
+import CarCrashCard from '../components/analyze/results/CarCrashCard'
 import Alert from '../components/ui/Alert'
 import { useAnalysis } from '../hooks/useAnalysis'
 import { ScanLine } from 'lucide-react'
@@ -75,6 +76,7 @@ export default function Analyze() {
           <ClassifyCard data={results.classify} />
           <FireCard data={results.fire} />
           <FloodCard data={results.flood} />
+          <CarCrashCard data={results.carcrash} />
           <DetectCard data={results.detect} />
         </div>
       </div>

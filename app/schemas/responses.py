@@ -72,6 +72,34 @@ class FireResponse(BaseModel):
     detections: list[FireDetection]
 
 
+# --- Car-crash-specific ----------------------------------------------------
+
+
+class CarCrashDetection(BaseModel):
+    cls: str = Field(..., alias="class")
+    confidence: float
+    bbox: list[float]
+
+    model_config = {"populate_by_name": True}
+
+
+class CarCrashResourceRecommendation(BaseModel):
+    ambulances: int
+    police_units: int
+    fire_trucks: int
+    smurd: int
+    tow_trucks: int
+
+
+class CarCrashResponse(BaseModel):
+    accident_count: int
+    accident_area_pct: float
+    estimated_area_m2: float
+    severity: Literal["none", "minor", "moderate", "major"]
+    resources: CarCrashResourceRecommendation
+    detections: list[CarCrashDetection]
+
+
 # --- Flood-specific --------------------------------------------------------
 
 
@@ -83,6 +111,7 @@ class FloodResponse(BaseModel):
     people: int
     plants: int
     total_objects: int
+    class_counts: dict[str, int] = Field(default_factory=dict)
 
 
 # --- Drone upload (stub) ---------------------------------------------------

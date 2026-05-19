@@ -13,6 +13,7 @@ from fastapi import Depends, File, HTTPException, UploadFile
 from PIL import Image
 
 from app.config import Settings, get_settings
+from app.services.carcrash import CarCrashDetector
 from app.services.classifier import DisasterClassifier
 from app.services.detector import GenericDetector
 from app.services.fire import FireDetector
@@ -32,6 +33,7 @@ class ModelRegistry:
         self._detector: GenericDetector | None = None
         self._flood: FloodSegmenter | None = None
         self._fire: FireDetector | None = None
+        self._carcrash: CarCrashDetector | None = None
         self._errors: dict[str, str] = {}
 
     def _try(self, name: str, factory):
@@ -88,12 +90,25 @@ class ModelRegistry:
             )
         return self._fire
 
+    def carcrash(self) -> CarCrashDetector | None:
+        if self._carcrash is None and "carcrash" not in self._errors:
+            self._carcrash = self._try(
+                "carcrash",
+                lambda: CarCrashDetector(
+                    self._settings.carcrash_detector_weights,
+                    image_size=self._settings.detect_image_size,
+                    conf=self._settings.detect_conf_threshold,
+                ),
+            )
+        return self._carcrash
+
     def status(self) -> list[dict]:
         return [
             {"name": "classifier", "loaded": self.classifier() is not None, "path": str(self._settings.classifier_weights)},
             {"name": "detector",   "loaded": self.detector()   is not None, "path": str(self._settings.generic_detector_weights)},
             {"name": "flood",      "loaded": self.flood()      is not None, "path": str(self._settings.flood_segmenter_weights)},
             {"name": "fire",       "loaded": self.fire()       is not None, "path": str(self._settings.fire_detector_weights)},
+            {"name": "carcrash",   "loaded": self.carcrash()   is not None, "path": str(self._settings.carcrash_detector_weights)},
         ]
 
 
@@ -130,6 +145,10 @@ def get_flood(reg: ModelRegistry = Depends(get_registry)) -> FloodSegmenter:
 
 def get_fire(reg: ModelRegistry = Depends(get_registry)) -> FireDetector:
     return _require(reg.fire(), "Fire detector")
+
+
+def get_carcrash(reg: ModelRegistry = Depends(get_registry)) -> CarCrashDetector:
+    return _require(reg.carcrash(), "Car-crash detector")
 
 
 # --- Image upload helper ---------------------------------------------------
