@@ -13,7 +13,7 @@ const RESOURCES = [
   { key: 'aerial_units',  label: 'Aerial',       icon: Plane },
 ]
 
-export default function FireCard({ data, showOverlay = true }) {
+export default function FireCard({ data, originalSrc, showOverlay = true }) {
   if (!data) return null
 
   return (
@@ -25,7 +25,12 @@ export default function FireCard({ data, showOverlay = true }) {
         accent="bg-orange-100 text-orange-700"
       />
 
-      {showOverlay && <AnnotatedImage src={data.annotated_image} alt="Fire and smoke detections" />}
+      <AnnotatedImage
+        src={data.annotated_image}
+        originalSrc={originalSrc}
+        showOverlay={showOverlay}
+        alt="Fire and smoke detections"
+      />
 
       {/* Severity strip */}
       <div className="mb-4">

@@ -20,7 +20,7 @@ const RESOURCES = [
   { key: 'tow_trucks',   label: 'Tow trucks', icon: Truck },
 ]
 
-export default function CarCrashCard({ data, showOverlay = true }) {
+export default function CarCrashCard({ data, originalSrc, showOverlay = true }) {
   if (!data) return null
   const idx = ORDER.indexOf(data.severity)
   const style = SEVERITY_STYLE[data.severity] ?? SEVERITY_STYLE.none
@@ -34,7 +34,12 @@ export default function CarCrashCard({ data, showOverlay = true }) {
         accent="bg-zinc-100 text-zinc-700"
       />
 
-      {showOverlay && <AnnotatedImage src={data.annotated_image} alt="Accident detections" />}
+      <AnnotatedImage
+        src={data.annotated_image}
+        originalSrc={originalSrc}
+        showOverlay={showOverlay}
+        alt="Accident detections"
+      />
 
       {/* Severity strip */}
       <div className={`rounded-xl border p-4 mb-4 ${style.bg} ${style.border}`}>

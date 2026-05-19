@@ -11,10 +11,11 @@ const TYPE_STYLE = {
   Uncertain:  { tone: 'slate',   icon: ShieldQuestion, bg: 'from-slate-600 to-slate-800' },
 }
 
-export default function VerdictCard({ verdict, showOverlay = true }) {
+export default function VerdictCard({ verdict, originalSrc, showOverlay = true }) {
   if (!verdict) return null
   const style = TYPE_STYLE[verdict.disaster_type] ?? TYPE_STYLE.Uncertain
   const Icon = style.icon
+  const hasImage = (showOverlay && verdict.annotated_image) || originalSrc
 
   return (
     <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white animate-fade-up">
@@ -38,10 +39,15 @@ export default function VerdictCard({ verdict, showOverlay = true }) {
         <p className="mt-4 text-sm text-white/90 leading-relaxed">{verdict.summary}</p>
       </div>
 
-      {/* Annotated image */}
-      {showOverlay && verdict.annotated_image && (
+      {/* Image — annotated when overlays are on, original otherwise */}
+      {hasImage && (
         <div className="bg-slate-100">
-          <AnnotatedImage src={verdict.annotated_image} alt={verdict.disaster_type} />
+          <AnnotatedImage
+            src={verdict.annotated_image}
+            originalSrc={originalSrc}
+            showOverlay={showOverlay}
+            alt={verdict.disaster_type}
+          />
         </div>
       )}
 

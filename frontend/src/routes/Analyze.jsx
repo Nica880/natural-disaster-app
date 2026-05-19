@@ -85,7 +85,7 @@ export default function Analyze() {
 
           {file && !loading && data && (
             <>
-              <VerdictCard verdict={data.verdict} showOverlay={showOverlays} />
+              <VerdictCard verdict={data.verdict} originalSrc={preview} showOverlay={showOverlays} />
 
               <button
                 type="button"
@@ -99,10 +99,10 @@ export default function Analyze() {
               {showDetails && (
                 <div className="space-y-4 animate-fade-up">
                   <ClassifyCard data={data.classification} />
-                  <FireCard     data={data.fire}     showOverlay={showOverlays} />
-                  <FloodCard    data={data.flood}    showOverlay={showOverlays} />
-                  <CarCrashCard data={data.carcrash} showOverlay={showOverlays} />
-                  <DetectCard   data={data.objects}  showOverlay={showOverlays} />
+                  <FireCard     data={data.fire}     originalSrc={preview} showOverlay={showOverlays} />
+                  <FloodCard    data={data.flood}    originalSrc={preview} showOverlay={showOverlays} />
+                  <CarCrashCard data={data.carcrash} originalSrc={preview} showOverlay={showOverlays} />
+                  <DetectCard   data={data.objects}  originalSrc={preview} showOverlay={showOverlays} />
                 </div>
               )}
             </>
