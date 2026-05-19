@@ -1,0 +1,55 @@
+# macOS
+.DS_Store
+
+# Datasets (too large for git)
+Datasets/
+
+# Training runs / outputs
+runs/
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+*.h5
+*.pb
+*.tflite
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
