@@ -8,7 +8,7 @@ Goal of this iteration: replace the broken fire path with a real YOLOv8 detector
 2. Run all cells. The notebook downloads D-Fire (~21k images), trains YOLOv8s for 50 epochs (~90–120 min), evaluates, and packages `fire.pt`.
 3. Drop the resulting `fire.pt` into `model/fire.pt` in this repo (it's gitignored).
 4. `pip install -r requirements.txt` locally, then `python model/predict_fire.py path/to/photo.jpg` to test.
-5. Start the API: `uvicorn app:app --reload`. POST an image to `/fire_analysis`.
+5. Start the API: `uvicorn app.main:app --reload`. POST an image to `/api/v1/detect/fire`.
 
 ## Dataset
 
@@ -44,8 +44,8 @@ The script auto-picks `cuda` → `mps` → `cpu`. On M-series Macs expect ~3–5
 
 ## What gets wired into the app
 
-- `model/fire_pipeline.py` — wraps the trained YOLO with severity classification and a resource-allocation heuristic.
-- New endpoint `POST /fire_analysis` in `app.py` returns:
+- `app/services/fire.py` — wraps the trained YOLO with severity classification and a resource-allocation heuristic.
+- Endpoint `POST /api/v1/detect/fire` in `app/api/routes/detect.py` returns:
   ```json
   {
     "fire_count": 2,
@@ -61,7 +61,7 @@ The script auto-picks `cuda` → `mps` → `cpu`. On M-series Macs expect ~3–5
     "detections": [{ "class": "fire", "confidence": 0.91, "bbox": [...] }, ...]
   }
   ```
-- The endpoint gracefully 503s if `model/fire.pt` is missing (the rest of the app keeps running).
+- The endpoint gracefully 503s if `model/fire.pt` is missing — the rest of the app keeps running. Check loaded models at `GET /health`.
 
 ## Severity heuristic (auditable, simple)
 
@@ -86,5 +86,7 @@ The default `assumed_frame_area_m2 = 10000` (= 100 m × 100 m) corresponds to a 
 ## Known follow-ups
 
 - Replace ResNet18's 5-epoch training with proper augmentation + 15+ epochs (separate task).
-- Fix `area_map` in `/analyze` — mixes COCO and OIV7 class IDs ([app.py:136-152](../app.py)).
-- Add the `/drone/upload` endpoint described in Raport 3 (token auth + GPS metadata) once the model side is solid.
+- ~~Fix `area_map` in `/analyze`~~ — done; OIV7 class IDs now correct in `app/services/detector.py`.
+- Implement the `/api/v1/drone/upload` endpoint (currently a 501 stub) — token auth + GPS metadata + webhook callback.
+- Retrain ResNet18 with proper augmentation and 15+ epochs (current `disaster_model.pth` is from 5 epochs only).
+- Add Postgres persistence layer for analysis history.

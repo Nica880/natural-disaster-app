@@ -1,0 +1,101 @@
+"""Pydantic response schemas — typed I/O and free OpenAPI docs at /docs."""
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+# --- Health ----------------------------------------------------------------
+
+
+class ModelStatus(BaseModel):
+    name: str
+    loaded: bool
+    path: str | None = None
+
+
+class HealthResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    models: list[ModelStatus]
+
+
+# --- Classification --------------------------------------------------------
+
+
+class ClassifyResponse(BaseModel):
+    predicted_class: str
+    confidence: float
+    probabilities: dict[str, float]
+
+
+# --- Generic object detection ---------------------------------------------
+
+
+class DetectResponse(BaseModel):
+    vehicles: int
+    people: int
+    buildings: int
+    area_percent: float = Field(..., description="Sum of bbox areas / image area * 100")
+    estimated_area_m2: float = Field(..., description="Sum of per-class real-world priors")
+    objects_detected: int
+    class_counts: dict[str, int]
+
+
+# --- Fire-specific ---------------------------------------------------------
+
+
+class FireDetection(BaseModel):
+    cls: str = Field(..., alias="class")
+    confidence: float
+    bbox: list[float]
+
+    model_config = {"populate_by_name": True}
+
+
+class ResourceRecommendation(BaseModel):
+    fire_trucks: int
+    ambulances: int
+    police_units: int
+    aerial_units: int
+    smurd: int
+
+
+class FireResponse(BaseModel):
+    fire_count: int
+    smoke_count: int
+    fire_area_pct: float
+    smoke_area_pct: float
+    severity: Literal["none", "small", "medium", "large", "extreme"]
+    estimated_area_m2: float
+    resources: ResourceRecommendation
+    detections: list[FireDetection]
+
+
+# --- Flood-specific --------------------------------------------------------
+
+
+class FloodResponse(BaseModel):
+    flood_area_pct: float
+    flood_area_m2: float
+    buildings: int
+    vehicles: int
+    people: int
+    plants: int
+    total_objects: int
+
+
+# --- Drone upload (stub) ---------------------------------------------------
+
+
+class DroneMetadata(BaseModel):
+    lat: float | None = None
+    lon: float | None = None
+    altitude_m: float | None = None
+    captured_at: str | None = None
+
+
+class DroneUploadResponse(BaseModel):
+    accepted: bool
+    upload_id: str
+    metadata: DroneMetadata
