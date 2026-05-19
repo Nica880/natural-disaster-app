@@ -2,7 +2,6 @@
 
 Master's thesis prototype. Image analysis for drone-captured disaster scenes — classification, object inventory, fire & smoke detection, flood segmentation, and car-crash detection — exposed through a FastAPI backend and a React + Tailwind frontend.
 
-Coordinator: Prof. Dr. Ing. Nirvana Popescu (UPB · Faculty of Automatic Control and Computers · E-Government).
 
 ---
 
