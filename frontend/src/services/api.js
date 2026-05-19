@@ -15,6 +15,7 @@ async function postImage(path, file) {
 }
 
 export const api = {
+  analyze:         (file) => postImage('/api/v1/analyze',          file),
   classify:        (file) => postImage('/api/v1/classify',         file),
   detect:          (file) => postImage('/api/v1/detect',           file),
   detectFire:      (file) => postImage('/api/v1/detect/fire',      file),

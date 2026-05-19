@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import get_registry
-from app.api.routes import classify, detect, drone, health
+from app.api.routes import analyze, classify, detect, drone, health
 from app.config import get_settings
 from app.logging import configure_logging
 
@@ -53,6 +53,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(analyze.router)
     app.include_router(classify.router)
     app.include_router(detect.router)
     app.include_router(drone.router)

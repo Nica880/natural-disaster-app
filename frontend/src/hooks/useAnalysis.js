@@ -1,57 +1,38 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../services/api'
 
-const INITIAL = {
-  classify: null,
-  detect:   null,
-  flood:    null,
-  fire:     null,
-  carcrash: null,
-}
-
-/** Manages the multi-call analysis flow for a single uploaded image.
- *
- * Returns one `run(key)` function and a results map. Errors are stored
- * per-action so the UI can surface them next to the offending button.
- */
+/** Auto-fires the unified /api/v1/analyze endpoint whenever the file changes.
+ *  Exposes the full response, a separate error, a loading flag, and a manual
+ *  `rerun()` so the UI can offer "Re-run analysis" without re-uploading. */
 export function useAnalysis(file) {
-  const [results, setResults] = useState(INITIAL)
-  const [errors, setErrors] = useState({})
-  const [loading, setLoading] = useState(null)
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  const reset = useCallback(() => {
-    setResults(INITIAL)
-    setErrors({})
-    setLoading(null)
+  const run = useCallback(async (f) => {
+    if (!f) return
+    setLoading(true)
+    setError(null)
+    setData(null)
+    try {
+      const json = await api.analyze(f)
+      setData(json)
+    } catch (err) {
+      setError(err.message || 'Analysis failed')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  const run = useCallback((key) => async () => {
-    if (!file) return
-    const fn = {
-      classify: api.classify,
-      detect:   api.detect,
-      flood:    api.detectFlood,
-      fire:     api.detectFire,
-      carcrash: api.detectCarCrash,
-    }[key]
-    if (!fn) return
-    setLoading(key)
-    setErrors(prev => ({ ...prev, [key]: null }))
-    try {
-      const data = await fn(file)
-      setResults(prev => ({ ...prev, [key]: data }))
-    } catch (err) {
-      setErrors(prev => ({ ...prev, [key]: err.message }))
-    } finally {
-      setLoading(null)
+  useEffect(() => {
+    if (!file) {
+      setData(null); setError(null); setLoading(false)
+      return
     }
-  }, [file])
-
-  const runAll = useCallback(async () => {
-    if (!file) return
-    await run('classify')()
-    await Promise.all([run('detect')(), run('flood')(), run('fire')(), run('carcrash')()])
+    run(file)
   }, [file, run])
 
-  return { results, errors, loading, run, runAll, reset }
+  const rerun = useCallback(() => run(file), [file, run])
+
+  return { data, error, loading, rerun }
 }

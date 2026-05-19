@@ -118,6 +118,33 @@ class FloodResponse(BaseModel):
     annotated_image: str | None = None
 
 
+# --- Unified auto-analysis -------------------------------------------------
+
+
+class Verdict(BaseModel):
+    """The headline answer the operator sees. Driven by the scene classifier
+    but cross-checked with the matching specialist detector when available."""
+    disaster_type: str = Field(..., description="Scene class: Wildfire / Flood / Cyclone / Earthquake / Car Crash / Uncertain")
+    confidence: float = Field(..., description="Classifier confidence (0-1)")
+    severity: str | None = Field(None, description="Specialist severity tier when applicable")
+    affected_area_pct: float | None = None
+    affected_area_m2: float | None = None
+    primary_model: Literal["fire", "flood", "carcrash", "generic", "none"]
+    summary: str = Field(..., description="One-line human-readable headline")
+    annotated_image: str | None = None
+    resources: dict | None = None
+    notes: list[str] = Field(default_factory=list, description="Caveats / disagreements")
+
+
+class AnalyzeResponse(BaseModel):
+    verdict: Verdict
+    classification: ClassifyResponse
+    fire: FireResponse | None = None
+    flood: FloodResponse | None = None
+    carcrash: CarCrashResponse | None = None
+    objects: DetectResponse | None = None
+
+
 # --- Drone upload (stub) ---------------------------------------------------
 
 
