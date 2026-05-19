@@ -7,6 +7,8 @@ function App() {
   const [result, setResult] = useState(null)
   const [analysisResult, setAnalysisResult] = useState(null)
   const [floodResult, setFloodResult] = useState(null)
+  const [fireResult, setFireResult] = useState(null)
+  const [fireError, setFireError] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const handleImageChange = (e) => {
@@ -17,6 +19,8 @@ function App() {
       setResult(null)
       setAnalysisResult(null)
       setFloodResult(null)
+      setFireResult(null)
+      setFireError(null)
     }
   }
 
@@ -84,6 +88,34 @@ function App() {
     }
   }
 
+  const handleFireAnalysis = async () => {
+    if (!selectedImage) return
+
+    setLoading(true)
+    setFireError(null)
+    const formData = new FormData()
+    formData.append('file', selectedImage)
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/fire_analysis', {
+        method: 'POST',
+        body: formData
+      })
+      if (response.status === 503) {
+        const err = await response.json()
+        setFireError(err.detail || 'Fire model not loaded yet.')
+      } else {
+        const data = await response.json()
+        setFireResult(data)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setFireError('Network error contacting backend.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 py-10 px-6">
       <div className="max-w-4xl mx-auto">
@@ -138,6 +170,14 @@ function App() {
               >
                 Flood Analysis
               </button>
+              <button
+                type="button"
+                onClick={handleFireAnalysis}
+                disabled={!selectedImage || loading}
+                className="flex-1 bg-orange-600 text-white py-3 px-6 rounded-full font-semibold hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              >
+                Fire Analysis
+              </button>
             </div>
           </form>
 
@@ -156,11 +196,43 @@ function App() {
                 <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
                   <h3 className="text-lg font-semibold text-gray-700 mb-4">Detailed Analysis</h3>
                   <div className="space-y-2 text-gray-700">
-                    <p><strong>Cars detected:</strong> {analysisResult.cars}</p>
+                    <p><strong>Vehicles detected:</strong> {analysisResult.vehicles}</p>
                     <p><strong>People detected:</strong> {analysisResult.people}</p>
-                    <p><strong>Estimated area:</strong> ~{analysisResult.estimated_area_m2} m²</p>
+                    <p><strong>Buildings detected:</strong> {analysisResult.buildings}</p>
+                    <p><strong>Estimated footprint:</strong> ~{analysisResult.estimated_area_m2} m²</p>
                     <p><strong>Image coverage:</strong> {analysisResult.area_percent}%</p>
                     <p><strong>Total objects:</strong> {analysisResult.objects_detected}</p>
+                  </div>
+                </div>
+              )}
+
+              {fireError && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-semibold text-yellow-700 mb-2">Fire Analysis unavailable</h3>
+                  <p className="text-sm text-yellow-700">{fireError}</p>
+                </div>
+              )}
+
+              {fireResult && (
+                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-semibold text-orange-700 mb-4">Fire Analysis</h3>
+                  <div className="grid grid-cols-2 gap-3 text-gray-700">
+                    <p><strong>Severity:</strong> <span className="capitalize">{fireResult.severity}</span></p>
+                    <p><strong>Fire boxes:</strong> {fireResult.fire_count}</p>
+                    <p><strong>Smoke boxes:</strong> {fireResult.smoke_count}</p>
+                    <p><strong>Fire area:</strong> {fireResult.fire_area_pct}%</p>
+                    <p><strong>Smoke area:</strong> {fireResult.smoke_area_pct}%</p>
+                    <p><strong>Estimated:</strong> ~{fireResult.estimated_area_m2} m²</p>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-orange-200">
+                    <h4 className="font-semibold text-orange-700 mb-2">Recommended response</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                      <p>Fire trucks: <strong>{fireResult.resources.fire_trucks}</strong></p>
+                      <p>Ambulances: <strong>{fireResult.resources.ambulances}</strong></p>
+                      <p>Police units: <strong>{fireResult.resources.police_units}</strong></p>
+                      <p>SMURD: <strong>{fireResult.resources.smurd}</strong></p>
+                      <p>Aerial units: <strong>{fireResult.resources.aerial_units}</strong></p>
+                    </div>
                   </div>
                 </div>
               )}
