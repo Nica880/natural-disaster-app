@@ -40,6 +40,7 @@ class DetectResponse(BaseModel):
     estimated_area_m2: float = Field(..., description="Sum of per-class real-world priors")
     objects_detected: int
     class_counts: dict[str, int]
+    annotated_image: str | None = Field(None, description="Data URI JPEG with boxes drawn")
 
 
 # --- Fire-specific ---------------------------------------------------------
@@ -70,6 +71,7 @@ class FireResponse(BaseModel):
     estimated_area_m2: float
     resources: ResourceRecommendation
     detections: list[FireDetection]
+    annotated_image: str | None = None
 
 
 # --- Car-crash-specific ----------------------------------------------------
@@ -98,6 +100,7 @@ class CarCrashResponse(BaseModel):
     severity: Literal["none", "minor", "moderate", "major"]
     resources: CarCrashResourceRecommendation
     detections: list[CarCrashDetection]
+    annotated_image: str | None = None
 
 
 # --- Flood-specific --------------------------------------------------------
@@ -112,6 +115,7 @@ class FloodResponse(BaseModel):
     plants: int
     total_objects: int
     class_counts: dict[str, int] = Field(default_factory=dict)
+    annotated_image: str | None = None
 
 
 # --- Drone upload (stub) ---------------------------------------------------

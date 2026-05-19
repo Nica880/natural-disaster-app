@@ -1,9 +1,10 @@
 import Card, { CardHeader } from '../../ui/Card'
 import Metric from '../../ui/Metric'
+import AnnotatedImage from '../AnnotatedImage'
 import { Droplets, Users, Car, Building2, Sprout } from 'lucide-react'
 import { int, m2, pct } from '../../../lib/format'
 
-export default function FloodCard({ data }) {
+export default function FloodCard({ data, showOverlay = true }) {
   if (!data) return null
   return (
     <Card padding="md" tone="flood" className="animate-fade-up">
@@ -13,6 +14,8 @@ export default function FloodCard({ data }) {
         icon={Droplets}
         accent="bg-blue-100 text-blue-700"
       />
+
+      {showOverlay && <AnnotatedImage src={data.annotated_image} alt="Flood segmentation mask" />}
 
       <div className="rounded-xl bg-white border border-blue-200 p-5 mb-4">
         <div className="flex items-baseline justify-between mb-2">

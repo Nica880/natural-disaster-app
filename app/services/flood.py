@@ -18,6 +18,8 @@ from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO
 
+from app.services._render import annotate_to_data_uri
+
 log = logging.getLogger(__name__)
 
 
@@ -83,12 +85,13 @@ class FloodSegmenter:
         flood_m2 = (flood_area_pct / 100.0) * assumed_frame_area_m2
 
         return {
-            "flood_area_pct": round(flood_area_pct, 2),
-            "flood_area_m2":  round(flood_m2, 1),
-            "buildings":      counts["building"],
-            "vehicles":       counts["vehicle"],
-            "people":         counts["person"],
-            "plants":         counts["plant"],
-            "total_objects":  total,
-            "class_counts":   class_counts,
+            "flood_area_pct":  round(flood_area_pct, 2),
+            "flood_area_m2":   round(flood_m2, 1),
+            "buildings":       counts["building"],
+            "vehicles":        counts["vehicle"],
+            "people":          counts["person"],
+            "plants":          counts["plant"],
+            "total_objects":   total,
+            "class_counts":    class_counts,
+            "annotated_image": annotate_to_data_uri(results),
         }

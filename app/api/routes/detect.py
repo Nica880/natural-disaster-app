@@ -48,6 +48,7 @@ def detect_fire(
         estimated_area_m2=report.estimated_area_m2,
         resources=ResourceRecommendation(**report.resources),
         detections=[FireDetection(**d) for d in report.detections],
+        annotated_image=report.annotated_image,
     )
 
 
@@ -75,4 +76,5 @@ def detect_carcrash(
         severity=report.severity,
         resources=CarCrashResourceRecommendation(**report.resources),
         detections=[CarCrashDetection(**d) for d in report.detections],
+        annotated_image=report.annotated_image,
     )

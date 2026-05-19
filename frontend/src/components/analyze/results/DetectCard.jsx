@@ -1,10 +1,11 @@
 import Card, { CardHeader } from '../../ui/Card'
 import Metric from '../../ui/Metric'
 import Badge from '../../ui/Badge'
+import AnnotatedImage from '../AnnotatedImage'
 import { ScanSearch, Users, Car, Building2 } from 'lucide-react'
 import { int, m2, pct } from '../../../lib/format'
 
-export default function DetectCard({ data }) {
+export default function DetectCard({ data, showOverlay = true }) {
   if (!data) return null
   const topClasses = Object.entries(data.class_counts || {})
     .sort(([, a], [, b]) => b - a)
@@ -18,6 +19,8 @@ export default function DetectCard({ data }) {
         icon={ScanSearch}
         accent="bg-slate-100 text-slate-700"
       />
+
+      {showOverlay && <AnnotatedImage src={data.annotated_image} alt="Detected objects" />}
 
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">

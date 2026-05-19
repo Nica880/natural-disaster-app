@@ -10,6 +10,8 @@ from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO
 
+from app.services._render import annotate_to_data_uri
+
 log = logging.getLogger(__name__)
 
 
@@ -80,4 +82,5 @@ class GenericDetector:
             "estimated_area_m2": round(estimated_area_m2, 1),
             "objects_detected": len(boxes),
             "class_counts": class_counts,
+            "annotated_image": annotate_to_data_uri(results),
         }

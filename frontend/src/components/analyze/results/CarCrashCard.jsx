@@ -1,5 +1,6 @@
 import Card, { CardHeader } from '../../ui/Card'
 import Metric from '../../ui/Metric'
+import AnnotatedImage from '../AnnotatedImage'
 import { Car, Stethoscope, Shield, ShieldAlert, Truck, Flame } from 'lucide-react'
 import { int, m2, pct } from '../../../lib/format'
 
@@ -19,7 +20,7 @@ const RESOURCES = [
   { key: 'tow_trucks',   label: 'Tow trucks', icon: Truck },
 ]
 
-export default function CarCrashCard({ data }) {
+export default function CarCrashCard({ data, showOverlay = true }) {
   if (!data) return null
   const idx = ORDER.indexOf(data.severity)
   const style = SEVERITY_STYLE[data.severity] ?? SEVERITY_STYLE.none
@@ -32,6 +33,8 @@ export default function CarCrashCard({ data }) {
         icon={Car}
         accent="bg-zinc-100 text-zinc-700"
       />
+
+      {showOverlay && <AnnotatedImage src={data.annotated_image} alt="Accident detections" />}
 
       {/* Severity strip */}
       <div className={`rounded-xl border p-4 mb-4 ${style.bg} ${style.border}`}>

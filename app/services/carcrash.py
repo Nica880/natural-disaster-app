@@ -20,6 +20,8 @@ from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO
 
+from app.services._render import annotate_to_data_uri
+
 log = logging.getLogger(__name__)
 
 
@@ -40,6 +42,7 @@ class CarCrashReport:
     severity: str  # 'none' | 'minor' | 'moderate' | 'major'
     resources: dict
     detections: list
+    annotated_image: str | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -119,4 +122,5 @@ class CarCrashDetector:
             severity=severity,
             resources=recommend_resources(severity, accident_count),
             detections=detections,
+            annotated_image=annotate_to_data_uri(result),
         )

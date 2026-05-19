@@ -7,12 +7,14 @@ import FloodCard from '../components/analyze/results/FloodCard'
 import FireCard from '../components/analyze/results/FireCard'
 import CarCrashCard from '../components/analyze/results/CarCrashCard'
 import Alert from '../components/ui/Alert'
+import Toggle from '../components/ui/Toggle'
 import { useAnalysis } from '../hooks/useAnalysis'
-import { ScanLine } from 'lucide-react'
+import { ScanLine, Eye } from 'lucide-react'
 
 export default function Analyze() {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [showOverlays, setShowOverlays] = useState(true)
   const { results, errors, loading, run, runAll, reset } = useAnalysis(file)
 
   useEffect(() => {
@@ -51,6 +53,15 @@ export default function Analyze() {
             onRun={run}
             onRunAll={runAll}
           />
+          {file && (
+            <Toggle
+              checked={showOverlays}
+              onChange={setShowOverlays}
+              icon={Eye}
+              label="Show overlays"
+              hint="Draw model boxes / masks on each result image"
+            />
+          )}
           {errorList.length > 0 && (
             <div className="space-y-2">
               {errorList.map(([k, msg]) => (
@@ -74,10 +85,10 @@ export default function Analyze() {
             </div>
           )}
           <ClassifyCard data={results.classify} />
-          <FireCard data={results.fire} />
-          <FloodCard data={results.flood} />
-          <CarCrashCard data={results.carcrash} />
-          <DetectCard data={results.detect} />
+          <FireCard     data={results.fire}     showOverlay={showOverlays} />
+          <FloodCard    data={results.flood}    showOverlay={showOverlays} />
+          <CarCrashCard data={results.carcrash} showOverlay={showOverlays} />
+          <DetectCard   data={results.detect}   showOverlay={showOverlays} />
         </div>
       </div>
     </div>

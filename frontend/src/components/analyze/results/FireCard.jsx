@@ -1,6 +1,7 @@
 import Card, { CardHeader } from '../../ui/Card'
 import Metric from '../../ui/Metric'
 import SeverityMeter from '../../ui/SeverityMeter'
+import AnnotatedImage from '../AnnotatedImage'
 import { Flame, Truck, Stethoscope, Shield, ShieldAlert, Plane } from 'lucide-react'
 import { int, m2, pct } from '../../../lib/format'
 
@@ -12,7 +13,7 @@ const RESOURCES = [
   { key: 'aerial_units',  label: 'Aerial',       icon: Plane },
 ]
 
-export default function FireCard({ data }) {
+export default function FireCard({ data, showOverlay = true }) {
   if (!data) return null
 
   return (
@@ -23,6 +24,8 @@ export default function FireCard({ data }) {
         icon={Flame}
         accent="bg-orange-100 text-orange-700"
       />
+
+      {showOverlay && <AnnotatedImage src={data.annotated_image} alt="Fire and smoke detections" />}
 
       {/* Severity strip */}
       <div className="mb-4">
