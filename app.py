@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import torch
@@ -6,8 +6,11 @@ from torchvision import models, transforms
 from PIL import Image
 import io
 import base64
+from pathlib import Path
 from ultralytics import YOLO
 import httpx
+
+from model.fire_pipeline import FirePipeline
 
 
 app = FastAPI()
@@ -35,6 +38,14 @@ model.eval()
 # ...existing code...
 yolo = YOLO("yolov8n-oiv7.pt")
 yolo_flood = YOLO("runs/segment/flood_seg/weights/best.pt")
+
+# Fire pipeline loads lazily — the trained weights may not exist yet.
+try:
+    fire_pipeline: FirePipeline | None = FirePipeline()
+    print("Fire pipeline loaded.")
+except FileNotFoundError as e:
+    fire_pipeline = None
+    print(f"Fire pipeline unavailable: {e}")
 
 transform = transforms.Compose(
     [
@@ -209,6 +220,27 @@ async def flood_analysis(file: UploadFile = File(...)):
     }
 
 
+@app.post("/fire_analysis")
+async def fire_analysis(file: UploadFile = File(...)):
+    if fire_pipeline is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Fire model not loaded. Train it via notebooks/train_fire_yolo.ipynb and place fire.pt in model/.",
+        )
+    image_data = await file.read()
+    image = Image.open(io.BytesIO(image_data)).convert("RGB")
+    report = fire_pipeline.analyze(image)
+    return report.to_dict()
+
+
 @app.get("/")
 def root():
-    return {"status": "running", "model": "disaster_detection"}
+    return {
+        "status": "running",
+        "models": {
+            "classifier": "resnet18",
+            "generic_detector": "yolov8n-oiv7",
+            "flood_segmenter": "yolov8n-seg (flood)",
+            "fire_detector": "yolov8s (D-Fire)" if fire_pipeline else "not_loaded",
+        },
+    }
