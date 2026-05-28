@@ -64,7 +64,7 @@ export default function About() {
           A modular pipeline for drone-image disaster triage
         </h1>
         <p className="mt-3 text-slate-600 max-w-3xl leading-relaxed">
-          Aegis is the dissertation prototype of <strong>Mihăilă Nicanor</strong>
+          RAID is the dissertation prototype of <strong>Mihăilă Nicanor</strong>
           (UPB · Faculty of Automatic Control and Computers · E-Government track,
           coord. Prof. Dr. Ing. Nirvana Popescu). The system combines a scene
           classifier with three specialised detectors so that aerial photos of an

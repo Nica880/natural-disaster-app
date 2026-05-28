@@ -46,7 +46,7 @@ export default function Home() {
               </span>
             </h1>
             <p className="mt-5 text-lg text-slate-600 max-w-2xl leading-relaxed">
-              Aegis turns drone-captured photos of disasters into a structured report
+              RAID turns drone-captured photos of disasters into a structured report
               in under a second — disaster type, affected area, people and structures
               at risk, and a draft response plan.
             </p>

@@ -3,11 +3,9 @@
 """
 from __future__ import annotations
 
-import uuid
-
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 
-from app.schemas.responses import DroneMetadata, DroneUploadResponse
+from app.schemas.responses import DroneUploadResponse
 
 router = APIRouter(prefix="/api/v1/drone", tags=["drone"])
 

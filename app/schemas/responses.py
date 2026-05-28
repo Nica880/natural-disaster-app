@@ -106,9 +106,19 @@ class CarCrashResponse(BaseModel):
 # --- Flood-specific --------------------------------------------------------
 
 
+class FloodResources(BaseModel):
+    boats: int
+    ambulances: int
+    evacuation_buses: int
+    police_units: int
+    smurd: int
+
+
 class FloodResponse(BaseModel):
     flood_area_pct: float
     flood_area_m2: float
+    severity: Literal["none", "minor", "moderate", "major", "catastrophic"] = "none"
+    resources: FloodResources | None = None
     buildings: int
     vehicles: int
     people: int
@@ -159,3 +169,79 @@ class DroneUploadResponse(BaseModel):
     accepted: bool
     upload_id: str
     metadata: DroneMetadata
+
+
+# --- Live monitor (camera ingest + incidents) -----------------------------
+
+
+class IncidentFrame(BaseModel):
+    """One captured frame in an incident's evidence trail."""
+    timestamp: str
+    confidence: float
+    snapshot: str | None = None
+
+
+class Incident(BaseModel):
+    """A grouped sequence of detections from one camera, one disaster class,
+    within a short time window. Frame-by-frame noise collapses into a single
+    actionable incident."""
+    id: str
+    camera_id: str
+    location: str | None = None
+    lat: float | None = None
+    lon: float | None = None
+    disaster_type: str
+    severity: str | None = None
+    confidence: float = Field(..., description="Peak classifier confidence across frames")
+    affected_area_pct: float | None = None
+    affected_area_m2: float | None = None
+    first_seen: str
+    last_seen: str
+    frame_count: int
+    status: Literal["active", "dismissed"] = "active"
+    summary: str
+    snapshot: str | None = Field(None, description="Best-evidence annotated frame, data URI JPEG")
+    resources: dict | None = Field(None, description="Recommended units; shape varies by disaster type")
+    frames: list[IncidentFrame] = Field(default_factory=list, description="Recent evidence frames (capped)")
+
+
+class IngestResponse(BaseModel):
+    """Ack returned to the camera. Cameras don't display analysis results —
+    they only need to know the frame was accepted and whether it triggered."""
+    accepted: bool = True
+    triggered: bool = Field(..., description="True if the frame opened or updated an incident")
+    incident_id: str | None = None
+
+
+class IncidentSummary(BaseModel):
+    """Lightweight incident row for the history list — no frames / no base64
+    snapshot (just a storage ref the UI can turn into an image URL)."""
+    id: str
+    camera_id: str | None = None
+    location: str | None = None
+    disaster_type: str
+    severity: str | None = None
+    confidence: float
+    frame_count: int
+    status: str
+    first_seen: str
+    last_seen: str
+    summary: str
+    snapshot_ref: str | None = None
+
+
+class FeedbackCreate(BaseModel):
+    """Operator ground-truth on an incident — powers real-world precision
+    metrics and a re-training dataset."""
+    verdict_correct: bool | None = Field(None, description="Was the detection correct?")
+    actual_type: str | None = Field(None, description="True class if the model was wrong")
+    notes: str | None = None
+
+
+class FeedbackResponse(BaseModel):
+    id: str
+    incident_id: str
+    verdict_correct: bool | None = None
+    actual_type: str | None = None
+    notes: str | None = None
+    created_at: str

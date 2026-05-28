@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1.7
+#
+# FastAPI backend — Python + Ultralytics + PyTorch. Model weights are baked
+# in so the container is self-contained (no volume mount required to run).
+#
+# Build context: repo root (so we can COPY app/ + model/ + runs/ + the
+# weight files at the root).
+#
+FROM python:3.11-slim AS runtime
+
+# System libs needed by opencv-python and ultralytics at runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libgl1 \
+      libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install Python deps first so the heavy layer is cached across code edits.
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application code + model artefacts. Paths must match app/config.py
+# (REPO_ROOT-relative).  Trained-but-optional models (fire.pt, carcrash.pt)
+# live in model/ and are copied if present — the registry gracefully skips
+# absent ones.
+COPY app/ ./app/
+COPY model/ ./model/
+COPY yolov8n-oiv7.pt ./
+
+EXPOSE 8000
+
+# Single worker on purpose: the IncidentStore is in-memory, so multiple
+# workers would each get their own (and the SSE stream from one would miss
+# events created by another). Move to multi-worker once you've got Redis or
+# a DB-backed store.
+CMD ["uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "1", \
+     "--timeout-graceful-shutdown", "2"]

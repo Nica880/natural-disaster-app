@@ -1,0 +1,92 @@
+# RAID — full stack orchestration.
+#
+#   docker compose up --build     # builds + starts everything
+#   docker compose down           # stops + removes containers
+#   docker compose logs -f backend
+#   docker compose build backend  # rebuild just one service
+#
+# After `up`, hit:
+#   http://localhost:5173   operator UI
+#   http://localhost:5174   camera simulator
+#   http://localhost:8000   FastAPI backend (Swagger at /docs)
+
+name: raid
+
+services:
+  # ───────────────────────────── Backend ─────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: raid-backend
+    container_name: raid-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # CORS allowlist — covers both UIs in the local-host setup.
+      APP_CORS_ORIGINS: '["http://localhost:5173","http://localhost:5174"]'
+      APP_DATABASE_URL: postgresql+psycopg://raid:raid@postgres:5432/raid
+      APP_IMAGE_DIR: /data/images
+    volumes:
+      - images:/data/images          # persisted evidence frames (paths live in DB)
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────── Operator UI ───────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: http://localhost:8000
+    image: raid-frontend
+    container_name: raid-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ────────────────────────── Camera simulator ───────────────────────
+  simulator:
+    build:
+      context: ./camera_sim
+    image: raid-simulator
+    container_name: raid-simulator
+    ports:
+      - "5174:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ───────────────────────────── Postgres ────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: raid-postgres
+    environment:
+      POSTGRES_USER: raid
+      POSTGRES_PASSWORD: raid
+      POSTGRES_DB: raid
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"          # exposed so you can connect with psql / a GUI
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raid"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pg_data:      # Postgres data directory
+  images:       # uploaded + annotated evidence frames

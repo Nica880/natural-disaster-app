@@ -21,6 +21,13 @@ from app.services.flood import FloodSegmenter
 
 log = logging.getLogger(__name__)
 
+# Longest-side cap for decoded uploads. YOLO resizes to its own imgsz (640)
+# internally, so detection accuracy is unaffected — but this bounds the
+# resolution that result.plot() draws mask overlays at. A dense segmentation
+# (80+ FloodNet masks) on a multi-thousand-pixel UAV frame otherwise segfaults
+# the native renderer.
+MAX_IMAGE_SIDE = 1280
+
 
 class ModelRegistry:
     """Lazy-loads each model on demand, caches results, swallows load errors
@@ -160,6 +167,9 @@ async def upload_image(file: UploadFile = File(...)) -> Image.Image:
         raise HTTPException(status_code=400, detail=f"Expected an image, got {file.content_type}")
     data = await file.read()
     try:
-        return Image.open(io.BytesIO(data)).convert("RGB")
+        img = Image.open(io.BytesIO(data)).convert("RGB")
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Could not decode image: {e}") from e
+    if max(img.size) > MAX_IMAGE_SIDE:
+        img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))  # in-place, keeps aspect ratio
+    return img

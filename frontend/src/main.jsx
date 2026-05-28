@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import Home from './routes/Home.jsx'
 import Analyze from './routes/Analyze.jsx'
+import Monitor from './routes/Monitor.jsx'
 import About from './routes/About.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -12,9 +13,13 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Routes>
         <Route element={<App />}>
-          <Route index element={<Home />} />
+          {/* Monitor is the operator's main workspace — it's the default landing. */}
+          <Route index element={<Monitor />} />
           <Route path="analyze" element={<Analyze />} />
+          <Route path="overview" element={<Home />} />
           <Route path="about" element={<About />} />
+          {/* Legacy /monitor path kept so old bookmarks still resolve. */}
+          <Route path="monitor" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

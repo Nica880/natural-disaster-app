@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RAID · Camera Simulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body { font-family: ui-sans-serif, system-ui, sans-serif; }</style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="size-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center">
+          <span class="text-white text-sm">📡</span>
+        </div>
+        <span class="font-semibold text-slate-900">RAID · Camera Simulator</span>
+      </div>
+      <span class="text-xs text-slate-500 hidden sm:inline">
+        POSTs frames to <span id="api-base" class="font-mono text-slate-700"></span>
+      </span>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+    <div>
+      <p class="text-sm text-slate-600">
+        Five simulated cameras stream frames to the backend at a configurable interval.
+        Each frame is sent as a multipart upload — exactly as a real edge device would.
+        Camera tiles show only the source frame and a tiny status; analysis results live on the
+        <a href="http://localhost:5173/monitor" class="text-indigo-600 underline" target="_blank">operator monitor</a>.
+      </p>
+    </div>
+
+    <div id="cameras" class="grid md:grid-cols-3 gap-4"></div>
+
+    <div class="text-xs text-slate-400">
+      Backend not running? Start it with <span class="font-mono">uvicorn app.main:app --reload --port 8000</span> from the repo root.
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8000'
+    document.getElementById('api-base').textContent = API_BASE
+
+    const CAMERAS = [
+      { id: 'cam-accident',   location: 'DN1 · Ploiești KM 8',          lat: 44.9410, lon: 26.0230, folder: 'samples/cam-accident'   },
+      { id: 'cam-fire',       location: 'Făgăraș Mountains · Sector 4', lat: 45.6010, lon: 24.9740, folder: 'samples/cam-fire'       },
+      { id: 'cam-flood',      location: 'Danube · Galați Port',         lat: 45.4350, lon: 28.0500, folder: 'samples/cam-flood'      },
+      { id: 'cam-cyclone',    location: 'Black Sea Coast · Constanța',  lat: 44.1730, lon: 28.6500, folder: 'samples/cam-cyclone'    },
+      { id: 'cam-earthquake', location: 'Vrancea Seismic · Focșani',    lat: 45.6960, lon: 27.1860, folder: 'samples/cam-earthquake' },
+    ]
+
+    const el = (tag, attrs = {}, ...children) => {
+      const node = document.createElement(tag)
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') node.className = v
+        else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v)
+        else node.setAttribute(k, v)
+      }
+      for (const c of children) node.append(c)
+      return node
+    }
+
+    function makeCameraTile(camera, manifest) {
+      const state = { running: false, intervalMs: 4000, idx: 0, timer: null }
+
+      const imgEl = el('img', { class: 'w-full h-44 object-cover bg-slate-900', alt: camera.id })
+      const statusEl = el('span', { class: 'text-xs font-medium text-slate-500' })
+      const intervalLabel = el('span', { class: 'text-xs text-slate-500 tabular-nums w-12 text-right' }, '4.0s')
+      const intervalInput = el('input', {
+        type: 'range', min: 1000, max: 10000, step: 500, value: state.intervalMs,
+        class: 'w-full accent-indigo-500',
+        oninput: (e) => {
+          state.intervalMs = parseInt(e.target.value, 10)
+          intervalLabel.textContent = (state.intervalMs / 1000).toFixed(1) + 's'
+          if (state.running) { stop(); start() }
+        },
+      })
+      const playBtn = el('button', {
+        class: 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors',
+        onclick: () => state.running ? stop() : start(),
+      }, '▶ Start')
+
+      const setStatus = (text, tone = 'idle') => {
+        const colors = { idle: 'text-slate-500', ok: 'text-emerald-700', hit: 'text-orange-700', err: 'text-rose-700' }
+        statusEl.textContent = text
+        statusEl.className = `text-xs font-medium ${colors[tone] || colors.idle}`
+      }
+
+      async function sendOne() {
+        const file = manifest[state.idx]
+        state.idx = (state.idx + 1) % manifest.length
+        imgEl.src = `${camera.folder}/${file}`
+        setStatus(`sending ${file}…`, 'idle')
+        try {
+          const blob = await (await fetch(`${camera.folder}/${file}`)).blob()
+          const fd = new FormData()
+          fd.append('file', blob, file)
+          fd.append('camera_id', camera.id)
+          fd.append('location', camera.location)
+          fd.append('lat', camera.lat)
+          fd.append('lon', camera.lon)
+          const r = await fetch(`${API_BASE}/api/v1/ingest`, { method: 'POST', body: fd })
+          if (!r.ok) { setStatus(`HTTP ${r.status}`, 'err'); return }
+          const body = await r.json()
+          setStatus(
+            body.triggered ? `🚨 incident #${body.incident_id}` : 'sent · no event',
+            body.triggered ? 'hit' : 'ok',
+          )
+        } catch (e) {
+          setStatus(`network: ${e.message}`, 'err')
+        }
+      }
+
+      function start() {
+        state.running = true
+        playBtn.textContent = '■ Stop'
+        playBtn.classList.replace('bg-indigo-600', 'bg-rose-600')
+        playBtn.classList.replace('hover:bg-indigo-700', 'hover:bg-rose-700')
+        sendOne()
+        state.timer = setInterval(sendOne, state.intervalMs)
+      }
+
+      function stop() {
+        state.running = false
+        playBtn.textContent = '▶ Start'
+        playBtn.classList.replace('bg-rose-600', 'bg-indigo-600')
+        playBtn.classList.replace('hover:bg-rose-700', 'hover:bg-indigo-700')
+        clearInterval(state.timer)
+        state.timer = null
+      }
+
+      // Preview first frame
+      imgEl.src = `${camera.folder}/${manifest[0]}`
+      setStatus(`${manifest.length} frames · idle`, 'idle')
+
+      return el('div', { class: 'bg-white border border-slate-200 rounded-2xl overflow-hidden' },
+        imgEl,
+        el('div', { class: 'p-3 space-y-3' },
+          el('div', {},
+            el('p', { class: 'font-semibold text-slate-900' }, camera.id),
+            el('p', { class: 'text-xs text-slate-500' }, '📍 ' + camera.location),
+          ),
+          el('div', { class: 'flex items-center justify-between gap-2' }, playBtn, statusEl),
+          el('div', { class: 'flex items-center gap-2' },
+            el('span', { class: 'text-xs text-slate-500 w-14' }, 'Interval'),
+            intervalInput,
+            intervalLabel,
+          ),
+        ),
+      )
+    }
+
+    async function init() {
+      const root = document.getElementById('cameras')
+      for (const cam of CAMERAS) {
+        try {
+          const manifest = await (await fetch(`${cam.folder}/manifest.json`)).json()
+          if (!Array.isArray(manifest) || manifest.length === 0) {
+            root.append(el('div', { class: 'p-4 bg-rose-50 text-rose-700 rounded-xl text-sm' },
+              `${cam.id}: no images found in ${cam.folder}`))
+            continue
+          }
+          root.append(makeCameraTile(cam, manifest))
+        } catch (e) {
+          root.append(el('div', { class: 'p-4 bg-rose-50 text-rose-700 rounded-xl text-sm' },
+            `${cam.id}: failed to load — ${e.message}`))
+        }
+      }
+    }
+    init()
+  </script>
+</body>
+</html>

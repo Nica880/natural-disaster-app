@@ -1,0 +1,46 @@
+# Generic
+.git
+.gitignore
+.DS_Store
+.vscode
+.idea
+*.swp
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+env
+
+# Node
+**/node_modules
+**/dist
+**/.vite
+
+# Large research artefacts not needed in any image
+Datasets/
+fine_tune_images/
+notebooks/
+
+# Docs & reports
+*.pdf
+*.docx
+*.md
+docs/
+
+# Local helper scripts that don't belong in containers
+fine_tune.py
+test_api.py
+scripts/
+
+# Misc model artefacts not used at runtime
+runs/detect/
+runs/classify/
+yolov8n-seg.pt
+yolov8n.pt
+
+# Backend folder is empty (legacy) — don't ship it
+backend/

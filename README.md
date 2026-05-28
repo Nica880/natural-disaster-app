@@ -1,4 +1,4 @@
-# Aegis — Disaster Image Intelligence
+# RAID — Real-time Aerial Incident Detection
 
 Master's thesis prototype. Image analysis for drone-captured disaster scenes — classification, object inventory, fire & smoke detection, flood segmentation, and car-crash detection — exposed through a FastAPI backend and a React + Tailwind frontend.
 
@@ -25,6 +25,47 @@ Open http://localhost:5173 in the browser. The frontend talks to the backend on 
 
 Health check: <http://127.0.0.1:8000/health> — shows which models loaded.
 Interactive API docs: <http://127.0.0.1:8000/docs>.
+
+---
+
+## Run the full stack with Docker
+
+Backend, operator UI, camera simulator, and PostgreSQL — one command:
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+| --- | --- |
+| Operator UI (Monitor) | http://localhost:5173 |
+| Camera simulator | http://localhost:5174 |
+| Backend API / Swagger | http://localhost:8000/docs |
+| PostgreSQL | `localhost:5432` (`raid` / `raid`) |
+
+`docker compose down` stops it; add `-v` to also wipe the database + image volumes.
+
+---
+
+## Live monitoring pipeline
+
+Besides the manual **Analyze** page, the app simulates a real deployment where cameras stream frames and the operator is alerted only when something is detected:
+
+- **Camera simulator** (`camera_sim/`, port 5174) — simulated cameras POST frames to `/api/v1/ingest` on a timer.
+- **Monitor** (operator home `/`) — live incident board over Server-Sent Events; new incidents trigger a chime + desktop notification. Frames from the same camera + disaster class are grouped into one **incident**, and dismissing one suppresses re-alerts for a cooldown window.
+- **Incident detail** — click any incident for evidence frames, metrics (severity, affected area), recommended response units, location + map link, and a correct / false-alarm feedback control.
+- **History** — a dropdown on Monitor lists closed incidents from the database.
+
+**Persistence:** PostgreSQL is the system of record; the live board is an in-memory read model written through to the DB and rehydrated on restart (incidents survive a restart). Evidence images are content-addressed on a volume, referenced from the DB.
+
+| Table | Holds |
+| --- | --- |
+| `cameras` | Auto-registered sources + heartbeat |
+| `analyses` | Every inference (upload + camera frame) |
+| `incidents` | Grouped detections shown to the operator |
+| `feedback` | Operator ground-truth (precision metrics + retraining) |
+
+Added endpoints: `POST /api/v1/analyze`, `POST /api/v1/ingest`, `GET /api/v1/incidents[/stream|/history|/{id}]`, `POST /api/v1/incidents/{id}/{dismiss,feedback}`, `GET /api/v1/images/{ref}`.
 
 ---
 
@@ -185,7 +226,7 @@ npm run lint
 Example:
 
 ```bash
-VITE_API_BASE=https://staging.aegis.example npm run dev
+VITE_API_BASE=https://staging.raid.example npm run dev
 ```
 
 ---
@@ -248,7 +289,8 @@ curl -sS -X POST -F "file=@some_photo.jpg" \
 - **Backend:** FastAPI · Pydantic v2 · pydantic-settings · Ultralytics YOLOv8 · PyTorch
 - **Frontend:** React 19 · React Router · Vite (rolldown-vite) · Tailwind v4 · lucide-react
 - **Training:** Ultralytics + Google Colab T4
-- **Storage:** PostgreSQL planned (drone upload + analysis history) — not yet wired
+- **Storage:** PostgreSQL (cameras, analyses, incidents, feedback) + filesystem volume for evidence images
+- **Live ops:** Server-Sent Events for the incident stream; camera simulator + Docker Compose for the full stack
 
 ---
 
