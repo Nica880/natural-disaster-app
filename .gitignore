@@ -61,7 +61,3 @@ yarn-error.log*
 
 # Runtime evidence-image store (content-addressed, written by the backend)
 data/
-
-# Camera-simulator sample frames — derived from the gitignored Datasets/;
-# regenerate locally from "Datasets/Natural Disasters/test/<class>/".
-camera_sim/samples/
