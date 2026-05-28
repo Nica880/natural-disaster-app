@@ -40,4 +40,7 @@ export const api = {
   incidentHistory: (limit = 50) => fetch(`${API_BASE}/api/v1/incidents/history?limit=${limit}`).then(r => r.json()),
   getIncident:     (id) => fetch(`${API_BASE}/api/v1/incidents/${id}`).then(r => r.json()),
   imageUrl:        (ref) => (ref ? `${API_BASE}/api/v1/images/${ref}` : null),
+
+  // Detection-accuracy stats (operator feedback)
+  feedbackStats:   () => fetch(`${API_BASE}/api/v1/feedback/stats`).then(r => r.json()),
 }

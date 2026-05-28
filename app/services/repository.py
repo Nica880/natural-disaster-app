@@ -10,12 +10,14 @@ import logging
 from datetime import datetime, timezone
 
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app import db_models as m
 from app.schemas.responses import (
     AnalyzeResponse,
+    FeedbackStats,
+    FeedbackTypeStat,
     Incident,
     IncidentFrame,
     IncidentSummary,
@@ -225,6 +227,46 @@ def add_feedback(
 
 def incident_exists(session: Session, incident_id: str) -> bool:
     return session.get(m.Incident, incident_id) is not None
+
+
+def feedback_stats(session: Session) -> FeedbackStats:
+    """Detection-accuracy metrics from the feedback table, joined to incidents
+    and grouped by disaster type. `correct` counts only rows where the operator
+    marked the verdict correct (verdict_correct True); False or NULL count as
+    not-correct. Precision guards divide-by-zero → 0.0."""
+    rows = session.execute(
+        select(
+            m.Incident.disaster_type,
+            func.count(m.Feedback.id),
+            func.count(m.Feedback.id).filter(m.Feedback.verdict_correct.is_(True)),
+        )
+        .join(m.Incident, m.Feedback.incident_id == m.Incident.id)
+        .group_by(m.Incident.disaster_type)
+    ).all()
+
+    by_type: list[FeedbackTypeStat] = []
+    total_reviewed = 0
+    total_correct = 0
+    for disaster_type, reviewed, correct in rows:
+        total_reviewed += reviewed
+        total_correct += correct
+        by_type.append(
+            FeedbackTypeStat(
+                disaster_type=disaster_type,
+                reviewed=reviewed,
+                correct=correct,
+                precision=(correct / reviewed) if reviewed else 0.0,
+            )
+        )
+
+    by_type.sort(key=lambda s: s.reviewed, reverse=True)
+    return FeedbackStats(
+        total_reviewed=total_reviewed,
+        total_correct=total_correct,
+        total_false=total_reviewed - total_correct,
+        precision=(total_correct / total_reviewed) if total_reviewed else 0.0,
+        by_type=by_type,
+    )
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────

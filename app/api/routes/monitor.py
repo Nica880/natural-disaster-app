@@ -26,6 +26,7 @@ from app.db import get_db
 from app.schemas.responses import (
     FeedbackCreate,
     FeedbackResponse,
+    FeedbackStats,
     Incident,
     IncidentSummary,
     IngestResponse,
@@ -115,6 +116,13 @@ def incident_history(
     """Closed (dismissed/resolved) incidents, most recent first — powers the
     history dropdown. Light payload (no frames / base64)."""
     return repository.list_incident_history(db, limit=min(limit, 200))
+
+
+@router.get("/feedback/stats", response_model=FeedbackStats)
+def feedback_stats(db: Session = Depends(get_db)) -> FeedbackStats:
+    """Detection-accuracy metrics aggregated from operator feedback — powers the
+    'Detection accuracy' panel on the monitor."""
+    return repository.feedback_stats(db)
 
 
 @router.get("/incidents/{incident_id}", response_model=Incident)

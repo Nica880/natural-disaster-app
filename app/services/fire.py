@@ -115,6 +115,13 @@ class FireDetector:
         fire_pct = (fire_area_px / img_area_px) * 100 if img_area_px else 0
         smoke_pct = (smoke_area_px / img_area_px) * 100 if img_area_px else 0
         severity = classify_severity(fire_pct, smoke_pct)
+        # Smoke is a fire signal in its own right — aerial/satellite views show
+        # plumes, not flames, and the detector boxes smoke *sources* (small
+        # area) rather than the whole plume. Never report "none" (and zero
+        # crews) when something actually burned: floor to "small" so an initial
+        # response is still dispatched.
+        if severity == "none" and (fire_count > 0 or smoke_count > 0):
+            severity = "small"
         est_m2 = (fire_pct / 100.0) * assumed_frame_area_m2
 
         return FireReport(

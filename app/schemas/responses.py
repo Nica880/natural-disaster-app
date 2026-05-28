@@ -245,3 +245,20 @@ class FeedbackResponse(BaseModel):
     actual_type: str | None = None
     notes: str | None = None
     created_at: str
+
+
+class FeedbackTypeStat(BaseModel):
+    """Per-disaster-type precision from operator feedback."""
+    disaster_type: str
+    reviewed: int
+    correct: int
+    precision: float = Field(..., description="correct / reviewed, 0..1")
+
+
+class FeedbackStats(BaseModel):
+    """Aggregate detection-accuracy metrics computed from operator feedback."""
+    total_reviewed: int
+    total_correct: int
+    total_false: int
+    precision: float = Field(..., description="overall correct / reviewed, 0..1")
+    by_type: list[FeedbackTypeStat]

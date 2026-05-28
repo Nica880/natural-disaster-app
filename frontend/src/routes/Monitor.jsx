@@ -6,6 +6,7 @@ import { playAlert, requestNotificationPermission, showNotification } from '../l
 import IncidentCard from '../components/monitor/IncidentCard'
 import IncidentDetail from '../components/monitor/IncidentDetail'
 import IncidentHistory from '../components/monitor/IncidentHistory'
+import FeedbackStats from '../components/monitor/FeedbackStats'
 
 /** Live operator dashboard. Active incidents stream in via SSE (with a chime
  *  + notification on each new one); closed incidents live in the history
@@ -105,6 +106,8 @@ export default function Monitor() {
       )}
 
       <IncidentHistory refreshSignal={historyRefresh} onOpen={openHistoryIncident} />
+
+      <FeedbackStats />
 
       {detail && (
         <IncidentDetail
