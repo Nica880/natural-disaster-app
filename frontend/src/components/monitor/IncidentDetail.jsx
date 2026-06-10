@@ -3,6 +3,7 @@ import {
   AlertTriangle, Camera, Clock, MapPin, X, Map,
   Truck, Ambulance, Siren, Plane, Cross, Ship, Bus,
   ThumbsUp, ThumbsDown, Check,
+  Wind, Droplets, Thermometer, CloudRain, ShieldAlert, ShieldCheck, Loader2,
 } from 'lucide-react'
 
 import { api } from '../../services/api'
@@ -28,17 +29,55 @@ const RESOURCE_META = {
 
 const fmt = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
+// "What is it actually?" options — keep in sync with the classifier's classes;
+// the backend derives the fine_tune_images/<folder> from these names.
+const ACTUAL_TYPES = ['Wildfire', 'Flood', 'Car Crash', 'Cyclone', 'Earthquake', 'Normal']
+
 export default function IncidentDetail({ incident, onClose, onDismiss }) {
   // Active main image — defaults to the best-evidence snapshot, but can be
   // swapped by clicking a thumbnail in the frame strip.
   const [activeFrame, setActiveFrame] = useState(null)
   // Operator ground-truth: null (unanswered) | true (correct) | false (false alarm)
   const [feedback, setFeedback] = useState(null)
+  // False-alarm flow: picker visibility + the corrected class the operator chose
+  const [pickingType, setPickingType] = useState(false)
+  const [correctedType, setCorrectedType] = useState(null)
+  // Live weather, tagged with the incident id it belongs to. Tagging lets us
+  // show a fresh load when switching incidents without a synchronous state
+  // reset inside the effect (which React flags as a cascading render).
+  const [weather, setWeather] = useState(null)       // { forId, data }
+  const [weatherErr, setWeatherErr] = useState(null)  // { forId, msg }
 
   const sendFeedback = (correct) => {
     setFeedback(correct)
     api.submitFeedback(incident.id, { verdict_correct: correct }).catch(() => setFeedback(null))
   }
+
+  // Wrong verdict + the true class → backend stores it and harvests the frame
+  // into fine_tune_images/<class>/ for the next training run.
+  const sendCorrection = (actualType) => {
+    setFeedback(false)
+    setCorrectedType(actualType)
+    api.submitFeedback(incident.id, { verdict_correct: false, actual_type: actualType })
+      .catch(() => { setFeedback(null); setCorrectedType(null); setPickingType(false) })
+  }
+
+  const hasCoords = incident?.lat != null && incident?.lon != null
+
+  // Fetch weather whenever a different located incident is opened.
+  useEffect(() => {
+    if (!hasCoords) return
+    let cancelled = false
+    const forId = incident.id
+    api.weather(incident.lat, incident.lon, incident.disaster_type)
+      .then((w) => { if (!cancelled) setWeather({ forId, data: w }) })
+      .catch((e) => { if (!cancelled) setWeatherErr({ forId, msg: e.message || 'Weather unavailable' }) })
+    return () => { cancelled = true }
+  }, [incident?.id, incident?.lat, incident?.lon, incident?.disaster_type, hasCoords])
+
+  // Only surface weather/error that belongs to the currently open incident.
+  const curWeather = weather?.forId === incident?.id ? weather.data : null
+  const curWeatherErr = weatherErr?.forId === incident?.id ? weatherErr.msg : null
 
   // Close on Escape — small operator-quality touch.
   useEffect(() => {
@@ -111,7 +150,7 @@ export default function IncidentDetail({ incident, onClose, onDismiss }) {
           </div>
 
           {/* Right — metrics, location, resources, actions */}
-          <div className="lg:col-span-2 p-6 space-y-5 bg-slate-50/40">
+          <div className="lg:col-span-2 p-6 bg-slate-50/40 divide-y divide-slate-200/70">
             <Section title="Metrics">
               <Stat label="Confidence"   value={`${(incident.confidence * 100).toFixed(0)}%`} />
               {incident.severity      && <Stat label="Severity"   value={incident.severity} />}
@@ -137,6 +176,12 @@ export default function IncidentDetail({ incident, onClose, onDismiss }) {
               )}
             </Section>
 
+            {hasCoords && (
+              <Section title="Weather on scene">
+                <WeatherSection weather={curWeather} error={curWeatherErr} />
+              </Section>
+            )}
+
             <Section title="Recommended units">
               <ResourcesBlock resources={incident.resources} disasterType={incident.disaster_type} accent={tone.accent} />
             </Section>
@@ -145,15 +190,26 @@ export default function IncidentDetail({ incident, onClose, onDismiss }) {
               {feedback !== null ? (
                 <p className="inline-flex items-center gap-1.5 text-xs text-emerald-700">
                   <Check className="size-3.5" />
-                  Recorded as {feedback ? 'correct' : 'a false alarm'} — thanks.
+                  {feedback
+                    ? 'Recorded as correct — thanks.'
+                    : `Recorded — saved for retraining as ${correctedType}.`}
                 </p>
+              ) : pickingType ? (
+                <select autoFocus defaultValue=""
+                        onChange={(e) => e.target.value && sendCorrection(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-white text-sm text-slate-700 focus:outline-none focus:border-amber-400">
+                  <option value="" disabled>What is actually in the image?</option>
+                  {ACTUAL_TYPES.map((t) => (
+                    <option key={t} value={t}>{t === 'Normal' ? 'Normal — no incident' : t}</option>
+                  ))}
+                </select>
               ) : (
                 <div className="flex gap-2">
                   <button onClick={() => sendFeedback(true)}
                           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm hover:bg-emerald-100 transition-colors">
                     <ThumbsUp className="size-4" /> Correct
                   </button>
-                  <button onClick={() => sendFeedback(false)}
+                  <button onClick={() => setPickingType(true)}
                           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm hover:bg-amber-100 transition-colors">
                     <ThumbsDown className="size-4" /> False alarm
                   </button>
@@ -161,7 +217,7 @@ export default function IncidentDetail({ incident, onClose, onDismiss }) {
               )}
             </Section>
 
-            <div className="pt-2 border-t border-slate-200">
+            <div className="pt-4">
               <button onClick={onDismiss}
                       className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 transition-colors">
                 <X className="size-4" />
@@ -177,8 +233,8 @@ export default function IncidentDetail({ incident, onClose, onDismiss }) {
 
 function Section({ title, children }) {
   return (
-    <div>
-      <p className="text-xs uppercase tracking-wider text-slate-500 font-medium mb-2">{title}</p>
+    <div className="py-4 first:pt-0">
+      <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-2.5">{title}</p>
       <div className="space-y-1.5">{children}</div>
     </div>
   )
@@ -198,6 +254,74 @@ function Row({ icon: Icon, children }) {
     <div className="flex items-center gap-2 text-sm text-slate-700">
       <Icon className="size-4 text-slate-400 shrink-0" />
       <span className="truncate">{children}</span>
+    </div>
+  )
+}
+
+const RISK_TONE = {
+  elevated: { box: 'bg-amber-50 border-amber-200 text-amber-800',   icon: ShieldAlert },
+  reduced:  { box: 'bg-emerald-50 border-emerald-200 text-emerald-800', icon: ShieldCheck },
+  normal:   { box: 'bg-slate-50 border-slate-200 text-slate-600',   icon: ShieldCheck },
+}
+
+function WeatherSection({ weather, error }) {
+  if (error) {
+    return <p className="text-xs text-slate-500 italic">{error}</p>
+  }
+  if (!weather) {
+    return (
+      <p className="inline-flex items-center gap-2 text-xs text-slate-400">
+        <Loader2 className="size-4 animate-spin" /> Loading current conditions…
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        {weather.icon && (
+          <img src={`https://openweathermap.org/img/wn/${weather.icon}@2x.png`}
+               alt="" className="size-12 -my-1" />
+        )}
+        <div className="min-w-0">
+          <p className="text-2xl font-semibold text-slate-900 leading-none">{Math.round(weather.temp_c)}°C</p>
+          <p className="text-xs text-slate-500 truncate">
+            {weather.description}{weather.place ? ` · ${weather.place}` : ''}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <WeatherChip icon={Thermometer} label="Feels like" value={`${Math.round(weather.feels_like_c)}°C`} />
+        <WeatherChip icon={Wind}        label="Wind"       value={`${weather.wind_speed_kmh} km/h`} />
+        <WeatherChip icon={Droplets}    label="Humidity"   value={`${weather.humidity_pct}%`} />
+        <WeatherChip icon={CloudRain}   label="Rain (1h)"  value={weather.rain_1h_mm != null ? `${weather.rain_1h_mm} mm` : 'none'} />
+      </div>
+
+      {weather.risk_note && <RiskBanner level={weather.risk_level} note={weather.risk_note} />}
+    </div>
+  )
+}
+
+function WeatherChip({ icon, label, value }) {
+  const Icon = icon
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-lg bg-white border border-slate-200">
+      <Icon className="size-4 text-slate-400 shrink-0" />
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500 truncate">{label}</p>
+        <p className="text-sm font-semibold text-slate-900">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function RiskBanner({ level, note }) {
+  const tone = RISK_TONE[level] || RISK_TONE.normal
+  const Icon = tone.icon
+  return (
+    <div className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs leading-relaxed ${tone.box}`}>
+      <Icon className="size-4 shrink-0 mt-0.5" />
+      <span>{note}</span>
     </div>
   )
 }

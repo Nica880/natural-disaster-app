@@ -262,3 +262,31 @@ class FeedbackStats(BaseModel):
     total_false: int
     precision: float = Field(..., description="overall correct / reviewed, 0..1")
     by_type: list[FeedbackTypeStat]
+
+
+# --- Weather (OpenWeather, per-incident location) --------------------------
+
+
+class WeatherResponse(BaseModel):
+    """Current conditions at an incident's coordinates, plus a disaster-aware
+    risk note. The note turns raw weather into an operational signal — e.g. a
+    wildfire under strong wind is escalated, a wildfire under heavy rain is
+    de-escalated (see the dissertation's worked examples)."""
+    description: str = Field(..., description="Human-readable sky condition, e.g. 'light rain'")
+    icon: str | None = Field(None, description="OpenWeather icon code, e.g. '10d'")
+    temp_c: float
+    feels_like_c: float
+    humidity_pct: int
+    wind_speed_ms: float
+    wind_speed_kmh: float
+    wind_gust_ms: float | None = None
+    wind_deg: int | None = None
+    rain_1h_mm: float | None = Field(None, description="Rain volume, last hour (mm)")
+    snow_1h_mm: float | None = Field(None, description="Snow volume, last hour (mm)")
+    clouds_pct: int | None = None
+    visibility_m: int | None = None
+    observed_at: str = Field(..., description="ISO-8601 observation time (UTC)")
+    place: str | None = Field(None, description="Nearest place name from OpenWeather")
+    # Contextual risk — populated only when a disaster_type is supplied.
+    risk_level: Literal["elevated", "normal", "reduced"] | None = None
+    risk_note: str | None = Field(None, description="One-line operational implication of the weather")

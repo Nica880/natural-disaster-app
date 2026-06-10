@@ -164,6 +164,9 @@ def submit_feedback(
     if not repository.incident_exists(db, incident_id):
         raise HTTPException(404, "Incident not found")
     fb = repository.add_feedback(db, incident_id, payload.verdict_correct, payload.actual_type, payload.notes)
+    # Named the true class → harvest the frame for the retraining set.
+    if payload.actual_type:
+        repository.export_for_retraining(db, incident_id, payload.actual_type)
     db.commit()
     return FeedbackResponse(
         id=fb.id, incident_id=fb.incident_id, verdict_correct=fb.verdict_correct,

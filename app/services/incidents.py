@@ -150,10 +150,18 @@ class IncidentStore:
         live `create` events) so the UI can hydrate state without triggering
         per-incident alerts."""
         queue: asyncio.Queue = asyncio.Queue(maxsize=SUBSCRIBER_QUEUE_MAX)
+        # Register for live events *before* the replay so nothing published
+        # mid-replay is lost.
         self._subscribers.append(queue)
         try:
+            # Replay the active set by yielding directly — NOT by pushing onto
+            # the bounded queue. This coroutine is both producer and consumer of
+            # `queue`, so an active set larger than `maxsize` would deadlock: the
+            # loop would block on a full queue before ever reaching the
+            # `queue.get()` drain below. Yielding straight to the client sidesteps
+            # that entirely.
             for inc in self.list_active():
-                await queue.put({"type": "snapshot", "incident": inc.model_dump()})
+                yield {"type": "snapshot", "incident": inc.model_dump()}
             while True:
                 yield await queue.get()
         finally:

@@ -50,7 +50,11 @@ LOW_CONFIDENCE_THRESHOLD = 0.45
 # domain), so its silence isn't proof of absence. The specialist still adds
 # severity/area/resources when it *does* fire; this only stops it from vetoing
 # a confident scene classification down to "Uncertain".
-HIGH_CONFIDENCE_THRESHOLD = 0.85
+# 0.85 was sized for the overconfident v1 classifier (wrong at 1.00). The v2
+# model is trained with label smoothing, so a well-calibrated correct call now
+# peaks around 0.80-0.95 — 0.75 keeps those without re-admitting junk (v2's
+# wrong-class calls cluster well below it).
+HIGH_CONFIDENCE_THRESHOLD = 0.75
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -139,6 +143,20 @@ _SEVERITY_RANK = {
     "none": 0, "small": 1, "minor": 1, "medium": 2, "moderate": 2,
     "large": 3, "major": 3, "extreme": 4,
 }
+# Minimum specialist box confidence to CONTRADICT the classifier. The fire and
+# car-crash YOLOs hallucinate "strong" detections on out-of-domain frames
+# (satellite cloud swirls scored as extreme fire / major crash at 0.26-0.52)
+# while the classifier was correct at ~1.00 — so a specialist that disagrees
+# must bring strong localisation evidence, not just a severity heuristic.
+OVERRIDE_MIN_BOX_CONF = 0.55
+
+# A thin water mask is NOT evidence of flooding: the segmenter reports real-
+# but-benign water (sea, canals) and false-positives on grey asphalt at 1-5%.
+# Benign-scene audit: an aerial parking lot scored 4.5% "water", a highway
+# canal 1.0% — while sub-0.80-confidence REAL floods showed 39.3% (the only
+# sub-threshold real frame relying on its mask). A Flood verdict therefore
+# needs either a confident classifier or a mask at least this large.
+FLOOD_MASK_STRONG_PCT = 8.0
 
 
 def _build_verdict(
@@ -195,6 +213,23 @@ def _build_verdict(
         if flood is None:
             notes.append("Flood segmenter unavailable — falling back to scene-level prediction.")
             return _generic_only_verdict(classification, generic, notes)
+        # Combined-evidence floor (calibrated on the benign + flood audits): a
+        # hesitant classifier backed only by a thin water mask must not alert —
+        # that signature matches seas/canals/asphalt, not flooding.
+        if conf < HIGH_CONFIDENCE_THRESHOLD and flood.flood_area_pct < FLOOD_MASK_STRONG_PCT:
+            notes.append(
+                f"Classifier is hesitant ({conf * 100:.0f}%) and the water mask is thin "
+                f"({flood.flood_area_pct:.1f}% < {FLOOD_MASK_STRONG_PCT:.0f}%) — combined evidence "
+                "is insufficient for a Flood alert."
+            )
+            return Verdict(
+                disaster_type="Uncertain",
+                confidence=conf,
+                primary_model="none",
+                summary="Possible Flood, but evidence is too weak to alert.",
+                annotated_image=flood.annotated_image,
+                notes=notes,
+            )
         if flood.flood_area_pct < 1.0:
             if conf >= HIGH_CONFIDENCE_THRESHOLD:
                 notes.append(f"Segmenter found <1% water, but the classifier is {conf * 100:.0f}% confident — keeping Flood (no area/severity available).")
@@ -227,10 +262,44 @@ def _build_verdict(
                 annotated_image=carcrash.annotated_image,
                 notes=notes,
             )
+        # Weak classifier + weak boxes must not compound into a confident alert
+        # (a flood-wading scene scored Car Crash 0.68 with a 0.43 box; real
+        # accidents classify at ≥0.96 in the audit set).
+        max_box = max((d.confidence for d in carcrash.detections), default=0.0)
+        if conf < HIGH_CONFIDENCE_THRESHOLD and max_box < OVERRIDE_MIN_BOX_CONF:
+            notes.append(
+                f"Both the classifier ({conf * 100:.0f}%) and the best accident box ({max_box * 100:.0f}%) "
+                "are weak — combined evidence is insufficient for a Car Crash alert."
+            )
+            return Verdict(
+                disaster_type="Uncertain",
+                confidence=conf,
+                primary_model="none",
+                summary="Possible Car Crash, but evidence is too weak to alert.",
+                annotated_image=carcrash.annotated_image,
+                notes=notes,
+            )
         return _carcrash_verdict(conf, carcrash, notes)
 
     # Cyclone / Earthquake → no specialist; rely on classifier + generic counts.
+    # With nothing able to corroborate (or veto) these classes, demand a
+    # confident classifier: benign scenes leak into them at 0.5-0.72 (snowy
+    # mountains read as Earthquake 0.72), while real quake/cyclone frames
+    # classify at ≥0.83.
     if pred in ("Cyclone", "Earthquake"):
+        if conf < HIGH_CONFIDENCE_THRESHOLD:
+            notes.append(
+                f"{pred} has no specialist detector to corroborate it and the classifier "
+                f"is only {conf * 100:.0f}% confident — not alerting."
+            )
+            return Verdict(
+                disaster_type="Uncertain",
+                confidence=conf,
+                primary_model="none",
+                summary=f"Possible {pred}, but evidence is too weak to alert.",
+                annotated_image=generic.annotated_image if generic else None,
+                notes=notes,
+            )
         return _generic_only_verdict(classification, generic, notes, headline=pred)
 
     # Unknown class — surface as-is.
@@ -250,10 +319,12 @@ def _specialist_override(
 
     if fire is not None and fire.severity in _FIRE_STRONG:
         fire_conf = max((d.confidence for d in fire.detections), default=classification.confidence)
-        cands.append((_SEVERITY_RANK[fire.severity], "Wildfire", _wildfire_verdict(fire_conf, fire, [])))
+        if _override_allowed("Wildfire", classification, fire_conf):
+            cands.append((_SEVERITY_RANK[fire.severity], "Wildfire", _wildfire_verdict(fire_conf, fire, [])))
     if carcrash is not None and carcrash.accident_count > 0 and carcrash.severity in _CRASH_STRONG:
         crash_conf = max((d.confidence for d in carcrash.detections), default=classification.confidence)
-        cands.append((_SEVERITY_RANK[carcrash.severity], "Car Crash", _carcrash_verdict(crash_conf, carcrash, [])))
+        if _override_allowed("Car Crash", classification, crash_conf):
+            cands.append((_SEVERITY_RANK[carcrash.severity], "Car Crash", _carcrash_verdict(crash_conf, carcrash, [])))
 
     if not cands:
         return None
@@ -265,6 +336,19 @@ def _specialist_override(
             f"but the {dtype} detector fired strongly — trusting the specialist."
         )
     return verdict
+
+
+def _override_allowed(dtype: str, classification: ClassifyResponse, box_conf: float) -> bool:
+    """Gate a specialist override. Agreeing with the classifier is always fine
+    (the override then only enriches the verdict with severity/area). To
+    CONTRADICT it, the classifier must not be near-certain about its own class
+    and the specialist's best box must clear OVERRIDE_MIN_BOX_CONF."""
+    if dtype == classification.predicted_class:
+        return True
+    return (
+        classification.confidence < HIGH_CONFIDENCE_THRESHOLD
+        and box_conf >= OVERRIDE_MIN_BOX_CONF
+    )
 
 
 def _wildfire_verdict(conf: float, fire: FireResponse, notes: list[str]) -> Verdict:
