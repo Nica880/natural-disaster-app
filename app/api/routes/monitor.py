@@ -24,6 +24,7 @@ from app.api.deps import ModelRegistry, get_registry, upload_image
 from app.api.routes.analyze import analyze
 from app.db import get_db
 from app.schemas.responses import (
+    DismissAllResponse,
     FeedbackCreate,
     FeedbackResponse,
     FeedbackStats,
@@ -116,6 +117,22 @@ def incident_history(
     """Closed (dismissed/resolved) incidents, most recent first — powers the
     history dropdown. Light payload (no frames / base64)."""
     return repository.list_incident_history(db, limit=min(limit, 200))
+
+
+# Static path — declared before `/incidents/{incident_id}` like the others.
+@router.post("/incidents/dismiss-all", response_model=DismissAllResponse)
+def dismiss_all_incidents(
+    store: IncidentStore = Depends(get_incident_store),
+    db: Session = Depends(get_db),
+) -> DismissAllResponse:
+    """Operator "clear all": close every active incident in one click instead
+    of dismissing them one by one. Each dismissal still emits its own SSE
+    event, so connected clients converge with no special bulk event type."""
+    dismissed = store.dismiss_all()
+    for inc in dismissed:
+        repository.mark_dismissed(db, inc.id)
+    db.commit()
+    return DismissAllResponse(dismissed=len(dismissed))
 
 
 @router.get("/feedback/stats", response_model=FeedbackStats)

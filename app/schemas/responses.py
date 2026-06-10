@@ -230,6 +230,13 @@ class IncidentSummary(BaseModel):
     snapshot_ref: str | None = None
 
 
+class DismissAllResponse(BaseModel):
+    """Ack for the bulk dismiss. Deliberately just a count — returning the
+    full incidents would ship their base64 frames for nothing; clients update
+    from the per-incident SSE dismiss events instead."""
+    dismissed: int = Field(..., description="Number of incidents dismissed")
+
+
 class FeedbackCreate(BaseModel):
     """Operator ground-truth on an incident — powers real-world precision
     metrics and a re-training dataset."""

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, BellRing, Radio } from 'lucide-react'
+import { Bell, BellRing, CircleX, Radio } from 'lucide-react'
 
 import { api } from '../services/api'
 import { playAlert, requestNotificationPermission, showNotification } from '../lib/alert'
@@ -74,6 +74,11 @@ export default function Monitor() {
     if (openId === id) closeModal()
   }
 
+  const onDismissAll = () => {
+    api.dismissAllIncidents()
+    if (incidents.some(i => i.id === openId)) closeModal()
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-6">
       <header className="flex items-end justify-between gap-4 flex-wrap">
@@ -96,12 +101,24 @@ export default function Monitor() {
       {incidents.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="grid lg:grid-cols-2 gap-4">
-          {incidents.map(inc => (
-            <IncidentCard key={inc.id} incident={inc}
-                          onOpen={() => openIncident(inc.id)}
-                          onDismiss={() => onDismiss(inc.id)} />
-          ))}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-slate-600">
+              {incidents.length} active incident{incidents.length > 1 ? 's' : ''}
+            </p>
+            <button onClick={onDismissAll}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700 transition-colors">
+              <CircleX className="size-3.5" />
+              Dismiss all
+            </button>
+          </div>
+          <div className="grid lg:grid-cols-2 gap-4">
+            {incidents.map(inc => (
+              <IncidentCard key={inc.id} incident={inc}
+                            onOpen={() => openIncident(inc.id)}
+                            onDismiss={() => onDismiss(inc.id)} />
+            ))}
+          </div>
         </div>
       )}
 
