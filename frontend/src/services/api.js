@@ -27,10 +27,11 @@ export const api = {
   health:          () => fetch(`${API_BASE}/health`).then(r => r.json()),
 
   // Live monitor
-  incidents:       () => fetch(`${API_BASE}/api/v1/incidents`).then(r => r.json()),
-  dismissIncident: (id) => fetch(`${API_BASE}/api/v1/incidents/${id}/dismiss`, { method: 'POST' }).then(r => r.json()),
-  streamIncidents: () => new EventSource(`${API_BASE}/api/v1/incidents/stream`),
-  submitFeedback:  (id, payload) => fetch(`${API_BASE}/api/v1/incidents/${id}/feedback`, {
+  incidents:           () => fetch(`${API_BASE}/api/v1/incidents`).then(r => r.json()),
+  dismissIncident:     (id) => fetch(`${API_BASE}/api/v1/incidents/${id}/dismiss`, { method: 'POST' }).then(r => r.json()),
+  dismissAllIncidents: () => fetch(`${API_BASE}/api/v1/incidents/dismiss-all`, { method: 'POST' }).then(r => r.json()),
+  streamIncidents:     () => new EventSource(`${API_BASE}/api/v1/incidents/stream`),
+  submitFeedback:      (id, payload) => fetch(`${API_BASE}/api/v1/incidents/${id}/feedback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

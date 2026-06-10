@@ -142,6 +142,15 @@ class IncidentStore:
         self._publish({"type": "dismiss", "incident": inc.model_dump()})
         return inc
 
+    def dismiss_all(self) -> list[Incident]:
+        """Operator "clear all". Emits one dismiss event per incident, so
+        clients converge through the same path as single dismissals."""
+        dismissed = []
+        for inc in self.list_active():
+            if self.dismiss(inc.id) is not None:
+                dismissed.append(inc)
+        return dismissed
+
     # ── SSE pub/sub ──────────────────────────────────────────────────────
 
     async def subscribe(self) -> AsyncIterator[dict]:
