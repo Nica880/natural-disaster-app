@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app import db_models as m
+from app.config import REPO_ROOT
 from app.schemas.responses import (
     AnalyzeResponse,
     FeedbackStats,
@@ -161,10 +162,23 @@ def _to_incident(session: Session, r: m.Incident) -> Incident:
     )
 
 
+# Cap how many active incidents we rehydrate on startup. The live board is an
+# operator view, not an archive; loading thousands of never-dismissed rows
+# (each re-reads + base64-encodes its frames) makes startup crawl and floods
+# the in-memory store. Older active rows still live in the DB / history.
+ACTIVE_REHYDRATE_LIMIT = 50
+
+
 def load_active_incidents(session: Session) -> list[Incident]:
     """Rebuild the in-memory incidents for the active set — called at startup
-    so a restart doesn't lose the live board."""
-    rows = session.scalars(select(m.Incident).where(m.Incident.status == "active")).all()
+    so a restart doesn't lose the live board. Capped at the most-recent
+    ``ACTIVE_REHYDRATE_LIMIT`` to keep startup bounded."""
+    rows = session.scalars(
+        select(m.Incident)
+        .where(m.Incident.status == "active")
+        .order_by(m.Incident.last_seen_at.desc())
+        .limit(ACTIVE_REHYDRATE_LIMIT)
+    ).all()
     return [_to_incident(session, r) for r in rows]
 
 
@@ -227,6 +241,35 @@ def add_feedback(
 
 def incident_exists(session: Session, incident_id: str) -> bool:
     return session.get(m.Incident, incident_id) is not None
+
+
+# Folders under fine_tune_images/ — must stay in sync with the classifier's
+# classes (train_v3.py maps them back by lowercase name).
+_RETRAIN_LABELS = {"car crash", "cyclone", "earthquake", "flood", "wildfire", "normal"}
+_RETRAIN_DIR = REPO_ROOT / "fine_tune_images"
+
+
+def export_for_retraining(session: Session, incident_id: str, actual_type: str) -> None:
+    """Operator said the verdict was wrong and named the true class — copy the
+    incident's best ORIGINAL frame (no annotation overlays) into
+    fine_tune_images/<class>/ so the next training run learns from it."""
+    label = actual_type.strip().lower()
+    if label not in _RETRAIN_LABELS:
+        log.warning("Feedback actual_type %r is not a known class — skipping export.", actual_type)
+        return
+    row = session.scalars(
+        select(m.Analysis)
+        .where(m.Analysis.incident_id == incident_id, m.Analysis.original_image_path.is_not(None))
+        .order_by(m.Analysis.confidence.desc())
+    ).first()
+    data = storage.read_bytes(row.original_image_path) if row is not None else None
+    if data is None:
+        log.warning("No original frame stored for incident %s — nothing to export.", incident_id)
+        return
+    dest = _RETRAIN_DIR / label
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / f"{incident_id}.jpg").write_bytes(data)
+    log.info("Saved retraining example: %s -> %s/", incident_id, label)
 
 
 def feedback_stats(session: Session) -> FeedbackStats:

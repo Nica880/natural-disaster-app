@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://raid:raid@localhost:5432/raid"
     image_dir: Path = REPO_ROOT / "data" / "images"
 
+    # --- Weather (OpenWeather) -------------------------------------------
+    # Free "Current Weather" API key — https://openweathermap.org/api.
+    # Set via APP_OPENWEATHER_API_KEY. Empty disables the /weather endpoint.
+    openweather_api_key: str = ""
+    openweather_base_url: str = "https://api.openweathermap.org/data/2.5/weather"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

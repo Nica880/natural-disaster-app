@@ -43,4 +43,14 @@ export const api = {
 
   // Detection-accuracy stats (operator feedback)
   feedbackStats:   () => fetch(`${API_BASE}/api/v1/feedback/stats`).then(r => r.json()),
+
+  // Real-time weather at an incident's location (+ disaster-aware risk note)
+  weather: async (lat, lon, disasterType) => {
+    const qs = new URLSearchParams({ lat, lon })
+    if (disasterType) qs.set('disaster_type', disasterType)
+    const res = await fetch(`${API_BASE}/api/v1/weather?${qs}`)
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(body.detail || `${res.status} ${res.statusText}`)
+    return body
+  },
 }

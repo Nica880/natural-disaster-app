@@ -27,8 +27,13 @@ services:
       APP_CORS_ORIGINS: '["http://localhost:5173","http://localhost:5174"]'
       APP_DATABASE_URL: postgresql+psycopg://raid:raid@postgres:5432/raid
       APP_IMAGE_DIR: /data/images
+      # OpenWeather key — taken from the host shell or a root .env file (see
+      # .env.example). Empty is fine: the /weather endpoint just returns 503.
+      APP_OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
     volumes:
       - images:/data/images          # persisted evidence frames (paths live in DB)
+      # Operator corrections land here (host folder, picked up by train_v3.py).
+      - ./fine_tune_images:/app/fine_tune_images
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)\""]
       interval: 10s

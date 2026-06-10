@@ -11,6 +11,9 @@ Master's thesis prototype. Image analysis for drone-captured disaster scenes —
 git clone https://github.com/Nica880/natural-disaster-app.git
 cd natural-disaster-app
 
+# 0. (optional) live weather on incidents — free OpenWeather key
+cp .env.example .env       # then paste your key into OPENWEATHER_API_KEY
+
 # 1. Backend
 python3 -m pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
@@ -36,6 +39,8 @@ Backend, operator UI, camera simulator, and PostgreSQL — one command:
 docker compose up --build
 ```
 
+The root `.env` (see `.env.example`) is picked up automatically — `OPENWEATHER_API_KEY` enables the weather panel; leaving it empty just disables that endpoint (503), everything else works.
+
 | Service | URL |
 | --- | --- |
 | Operator UI (Monitor) | http://localhost:5173 |
@@ -53,7 +58,8 @@ Besides the manual **Analyze** page, the app simulates a real deployment where c
 
 - **Camera simulator** (`camera_sim/`, port 5174) — simulated cameras POST frames to `/api/v1/ingest` on a timer.
 - **Monitor** (operator home `/`) — live incident board over Server-Sent Events; new incidents trigger a chime + desktop notification. Frames from the same camera + disaster class are grouped into one **incident**, and dismissing one suppresses re-alerts for a cooldown window.
-- **Incident detail** — click any incident for evidence frames, metrics (severity, affected area), recommended response units, location + map link, and a correct / false-alarm feedback control.
+- **Incident detail** — click any incident for evidence frames, metrics (severity, affected area), recommended response units, location + map link, **live weather on scene** (OpenWeather + a disaster-aware risk note: wind matters for a wildfire, rain/cold for a flood), and the feedback control.
+- **Feedback → retraining loop** — "Correct" records ground truth; "False alarm" opens a dropdown (*what is actually in the image?* — 5 disaster types + Normal). The correction is stored and the incident's original frame is exported to `fine_tune_images/<class>/`, which the training scripts merge automatically on the next run.
 - **History** — a dropdown on Monitor lists closed incidents from the database.
 
 **Persistence:** PostgreSQL is the system of record; the live board is an in-memory read model written through to the DB and rehydrated on restart (incidents survive a restart). Evidence images are content-addressed on a volume, referenced from the DB.
@@ -65,7 +71,25 @@ Besides the manual **Analyze** page, the app simulates a real deployment where c
 | `incidents` | Grouped detections shown to the operator |
 | `feedback` | Operator ground-truth (precision metrics + retraining) |
 
-Added endpoints: `POST /api/v1/analyze`, `POST /api/v1/ingest`, `GET /api/v1/incidents[/stream|/history|/{id}]`, `POST /api/v1/incidents/{id}/{dismiss,feedback}`, `GET /api/v1/images/{ref}`.
+Added endpoints: `POST /api/v1/analyze`, `POST /api/v1/ingest`, `GET /api/v1/incidents[/stream|/history|/{id}]`, `POST /api/v1/incidents/{id}/{dismiss,feedback}`, `GET /api/v1/images/{ref}`, `GET /api/v1/weather?lat&lon&disaster_type`.
+
+---
+
+## Detection accuracy
+
+The verdict pipeline (scene classifier + specialist detectors + calibrated arbitration rules in [app/api/routes/analyze.py](app/api/routes/analyze.py)) is measured by two reproducible audits:
+
+```bash
+python model/audit_pipeline.py        # 120 ground-truth disaster frames (camera_sim/samples)
+```
+
+| Metric | v1 (5 epochs, no augmentation) | current (v3 + rules) |
+| --- | --- | --- |
+| Disaster audit (120 frames) | 98/120 (81.7%), 16 wrong-type verdicts | **118/120 (98.3%), 0 wrong-type** |
+| Benign scenes → false incidents | 6/10 | **1/10** |
+| Classifier test split | — | **99.0%** (6 classes, 1 096 images) |
+
+The classifier is a ResNet-18 with **6 classes** — the 5 disasters plus **Normal** (no emergency), so a highway with traffic or a beach no longer has to be force-labelled as a disaster. Methodology, measurements and threshold rationale: [docs/antrenare_clasificator_v2.md](docs/antrenare_clasificator_v2.md), [docs/clasa_normal_scene_benigne.md](docs/clasa_normal_scene_benigne.md), [docs/sistem_feedback_reantrenare.md](docs/sistem_feedback_reantrenare.md).
 
 ---
 
@@ -87,7 +111,7 @@ Some of the trained weight files are large and **gitignored** (`*.pt`, `*.pth`, 
 | Model | Path | Source | Size |
 | --- | --- | --- | --- |
 | Stock YOLOv8n weights | `yolov8n.pt`, `yolov8n-oiv7.pt`, `yolov8n-seg.pt` | Ultralytics (auto-downloaded on first run) | ~7 MB each |
-| Scene classifier (ResNet-18) | `model/disaster_model.pth` | Trained from `model/train.py` on the Roboflow Natural Disasters set | ~43 MB |
+| Scene classifier (ResNet-18, 6 classes incl. Normal) | `model/disaster_model.pth` | Trained from `model/train_v3.py` on the Roboflow Natural Disasters set + a benign "Normal" set (`model/train.py` is the legacy v1 recipe) | ~43 MB |
 | Flood segmenter (legacy) | `runs/segment/flood_seg/weights/best.pt` | Trained from `model/train_flood_yolo.py` | ~6 MB |
 | **Fire & smoke** | `model/fire.pt` | Trained via [notebooks/train_fire_yolo.ipynb](notebooks/train_fire_yolo.ipynb) on D-Fire | ~22 MB |
 | **Flood (new)** | `model/flood.pt` | Trained via [notebooks/train_flood_yolo.ipynb](notebooks/train_flood_yolo.ipynb) on FloodNet 2021 | ~23 MB |
@@ -107,7 +131,8 @@ If you cloned the repo fresh, the bottom three need to be trained (see [Training
 │   ├── logging.py
 │   ├── api/
 │   │   ├── deps.py               ModelRegistry + DI providers
-│   │   └── routes/               health, classify, detect, drone
+│   │   └── routes/               health, classify, detect, analyze,
+│   │                             monitor, weather, images, drone
 │   ├── schemas/responses.py      Pydantic response models
 │   └── services/                 One module per model
 │       ├── classifier.py         ResNet-18
@@ -136,12 +161,18 @@ If you cloned the repo fresh, the bottom three need to be trained (see [Training
 │   └── train_carcrash_yolo.ipynb
 │
 ├── model/                        Training & inference scripts + weights
-│   ├── train.py                  ResNet-18 train (uses Datasets/Natural Disasters)
+│   ├── train_v3.py               ResNet-18, 6 classes (current recipe)
+│   ├── train_v2.py               5-class recipe (augmentation + calibration)
+│   ├── train.py                  legacy v1 recipe
+│   ├── audit_pipeline.py         end-to-end accuracy audit (120 frames)
 │   ├── train_fire.py             YOLOv8 fire (local fallback for Colab)
 │   ├── predict_fire.py           CLI inference test
 │   └── *.pt / *.pth              (gitignored)
 │
-├── docs/                         Project docs (Romanian thesis + guides)
+├── docs/                         Project docs (Romanian thesis + guides;
+│                                 methodology: antrenare_clasificator_v2,
+│                                 clasa_normal_scene_benigne,
+│                                 sistem_feedback_reantrenare)
 ├── requirements.txt              Python deps
 └── README.md                     ← you are here
 ```
@@ -195,6 +226,8 @@ APP_CORS_ORIGINS='["https://my-demo.example"]' \
 | POST | `/api/v1/detect/fire` | Fire & smoke + severity + crews | YOLOv8 · D-Fire |
 | POST | `/api/v1/detect/flood` | Flood mask + scene counts | YOLOv8-seg |
 | POST | `/api/v1/detect/carcrash` | Accident bbox + severity + crews | YOLOv8 · accident |
+| POST | `/api/v1/analyze` | Full pipeline: classify + all specialists + verdict | all of the above |
+| GET | `/api/v1/weather` | Current weather at `lat,lon` + disaster-aware risk note | OpenWeather proxy |
 | POST | `/api/v1/drone/upload` | Stub (501) for the Raport-3 drone upload spec | — |
 
 All `/detect*` and `/classify` accept `multipart/form-data` with a single `file` field.
@@ -248,10 +281,10 @@ After dropping new weights into `model/`, restart `uvicorn` and confirm via `/he
 ### Re-training the scene classifier locally
 
 ```bash
-python model/train.py
+python model/train_v3.py        # current recipe: 6 classes incl. Normal, ~40 min on Apple MPS
 ```
 
-Reads from `Datasets/Natural Disasters/{train,valid,test}/`. The Datasets folder is **not** in git (4.4 GB) — download separately from the [Roboflow Natural Disasters page](https://universe.roboflow.com/yolo-classification/natural-disasters).
+Reads from `Datasets/Natural Disasters/{train,valid,test}/` (Roboflow, gitignored — download from the [Roboflow Natural Disasters page](https://universe.roboflow.com/yolo-classification/natural-disasters)), `Datasets/Normal/` (benign scenes — any everyday-photo source works; ~1.3k images) and `fine_tune_images/` (operator corrections, merged automatically). The script ends with a held-out test report + a check over the camera-sim frames. Before installing a new checkpoint as `model/disaster_model.pth`, validate with `python model/audit_pipeline.py` (the measured history lives in its header).
 
 ---
 
@@ -279,6 +312,7 @@ curl -sS -X POST -F "file=@some_photo.jpg" \
 | `Unable to evaluate type annotation 'str \| None'` on Python 3.9 | `pip install eval_type_backport` (already in requirements.txt) |
 | Backend boots but `fire`/`flood`/`carcrash` is `loaded=false` | The corresponding `.pt` is missing — train via the Colab notebook and drop it in `model/`. |
 | Frontend can't reach the backend | Check `VITE_API_BASE`; default expects `127.0.0.1:8000`. Also check the backend `APP_CORS_ORIGINS` includes the frontend origin. |
+| Weather panel says "not configured" / endpoint returns 503 | Set `OPENWEATHER_API_KEY` in the root `.env` (see `.env.example`) and restart the backend. A brand-new key can return 401 for ~10 min–2 h until OpenWeather activates it. |
 | `npm install` fails on package-lock conflicts | `rm -rf node_modules package-lock.json && npm install` |
 | `git push` says "Permission denied" | The repo is on GitHub `Nica880/natural-disaster-app`; make sure the credentials in your keychain match that account. |
 
@@ -290,7 +324,7 @@ curl -sS -X POST -F "file=@some_photo.jpg" \
 - **Frontend:** React 19 · React Router · Vite (rolldown-vite) · Tailwind v4 · lucide-react
 - **Training:** Ultralytics + Google Colab T4
 - **Storage:** PostgreSQL (cameras, analyses, incidents, feedback) + filesystem volume for evidence images
-- **Live ops:** Server-Sent Events for the incident stream; camera simulator + Docker Compose for the full stack
+- **Live ops:** Server-Sent Events for the incident stream; camera simulator + Docker Compose for the full stack; OpenWeather for on-scene conditions
 
 ---
 
