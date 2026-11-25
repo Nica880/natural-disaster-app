@@ -20,11 +20,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+
+# JSONB on PostgreSQL (production), plain JSON elsewhere (SQLite in tests / quick local runs).
+JsonDoc = JSON().with_variant(JSONB(), "postgresql")
 
 
 def _uuid() -> str:
@@ -61,7 +64,7 @@ class Incident(Base):
     affected_area_m2: Mapped[Optional[float]] = mapped_column(Float)
     lat: Mapped[Optional[float]] = mapped_column(Float)
     lon: Mapped[Optional[float]] = mapped_column(Float)
-    resources: Mapped[Optional[dict]] = mapped_column(JSONB)
+    resources: Mapped[Optional[dict]] = mapped_column(JsonDoc)
     best_snapshot_path: Mapped[Optional[str]] = mapped_column(String)  # annotated frame on disk
     frame_count: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String, default="active", index=True)
@@ -92,7 +95,7 @@ class Analysis(Base):
     primary_model: Mapped[str] = mapped_column(String)
 
     # Full structured output (classification + per-model raw + resources).
-    outputs: Mapped[Optional[dict]] = mapped_column(JSONB)
+    outputs: Mapped[Optional[dict]] = mapped_column(JsonDoc)
 
     original_image_path: Mapped[Optional[str]] = mapped_column(String)
     annotated_image_path: Mapped[Optional[str]] = mapped_column(String)

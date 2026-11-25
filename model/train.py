@@ -1,8 +1,8 @@
 """Script SIMPLU pentru antrenarea modelului de detectare dezastre"""
 import torch
 import torch.nn as nn
-from torchvision import models, transforms, datasets
 from torch.utils.data import DataLoader
+from torchvision import datasets, models, transforms
 from tqdm import tqdm
 
 # Config
@@ -41,25 +41,25 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 best_acc = 0
 for epoch in range(EPOCHS):
     print(f"\n📍 Epoca {epoch+1}/{EPOCHS}")
-    
+
     # Train
     model.train()
     train_loss, correct = 0, 0
     for imgs, labels in tqdm(train_loader, desc="Train"):
         imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-        
+
         optimizer.zero_grad()
         outputs = model(imgs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        
+
         train_loss += loss.item()
         correct += (outputs.argmax(1) == labels).sum().item()
-    
+
     train_acc = correct / len(train_data)
     print(f"Train Loss: {train_loss/len(train_loader):.3f} | Acc: {train_acc:.3f}")
-    
+
     # Validation
     model.eval()
     correct = 0
@@ -68,10 +68,10 @@ for epoch in range(EPOCHS):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             outputs = model(imgs)
             correct += (outputs.argmax(1) == labels).sum().item()
-    
+
     val_acc = correct / len(val_data)
     print(f"Valid Acc: {val_acc:.3f}")
-    
+
     # Salvează cel mai bun
     if val_acc > best_acc:
         best_acc = val_acc

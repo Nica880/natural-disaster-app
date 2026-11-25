@@ -16,4 +16,4 @@ results = model.train(
 )
 
 print("✅ Training complete!")
-print(f"📁 Model saved to: runs/segment/flood_seg/weights/best.pt")
+print("📁 Model saved to: runs/segment/flood_seg/weights/best.pt")

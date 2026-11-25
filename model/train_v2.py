@@ -83,7 +83,7 @@ test_data = datasets.ImageFolder(DATA / "test", transform=eval_tf)
 classes = train_data.classes
 
 train_sets = [train_data]
-if FINE_TUNE.is_dir() and any(FINE_TUNE.iterdir()):
+if FINE_TUNE.is_dir() and any(p.is_dir() for p in FINE_TUNE.iterdir()):
     # Folder names differ only in casing ("car crash" vs "Car Crash") — both
     # sort to the same index order, so the labels align with `classes`.
     ft = datasets.ImageFolder(FINE_TUNE, transform=train_tf)

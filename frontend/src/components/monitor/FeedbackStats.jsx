@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Target, ChevronDown, ChevronUp } from 'lucide-react'
 
 import { api } from '../../services/api'
@@ -13,14 +13,17 @@ export default function FeedbackStats() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
+  // Fetch fresh numbers every time the panel is opened.
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    if (!next) return
     setLoading(true)
     api.feedbackStats()
       .then(data => setStats(data && typeof data === 'object' ? data : null))
       .catch(() => setStats(null))
       .finally(() => setLoading(false))
-  }, [open])
+  }
 
   const reviewed = stats?.total_reviewed ?? 0
 
@@ -28,7 +31,7 @@ export default function FeedbackStats() {
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
       >
         <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">

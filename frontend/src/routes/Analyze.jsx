@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ScanLine, Eye, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 
 import ImageDropzone from '../components/analyze/ImageDropzone'
@@ -14,20 +14,25 @@ import { useAnalysis } from '../hooks/useAnalysis'
 
 export default function Analyze() {
   const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState(null)
   const [showOverlays, setShowOverlays] = useState(true)
   const [showDetails, setShowDetails] = useState(false)
   const { data, error, loading, rerun } = useAnalysis(file)
 
-  useEffect(() => {
-    if (!file) { setPreview(null); return }
-    const url = URL.createObjectURL(file)
-    setPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [file])
+  const [preview, setPreview] = useState(null)
+  const previewUrl = useRef(null)
 
-  const onSelect = (f) => setFile(f)
-  const onClear  = () => setFile(null)
+  // Swap the selected file and its object-URL preview together, revoking the
+  // previous URL so blobs don't leak.
+  const selectFile = (f) => {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+    previewUrl.current = f ? URL.createObjectURL(f) : null
+    setPreview(previewUrl.current)
+    setFile(f)
+  }
+  useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
+
+  const onSelect = (f) => selectFile(f)
+  const onClear  = () => selectFile(null)
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-6">

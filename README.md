@@ -1,6 +1,52 @@
 # RAID — Real-time Aerial Incident Detection
 
-Master's thesis prototype. Image analysis for drone-captured disaster scenes — classification, object inventory, fire & smoke detection, flood segmentation, and car-crash detection — exposed through a FastAPI backend and a React + Tailwind frontend.
+[![CI](https://github.com/Nica880/natural-disaster-app/actions/workflows/ci.yml/badge.svg)](https://github.com/Nica880/natural-disaster-app/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
+
+Cameras and drones stream frames; RAID decides whether something is wrong — wildfire, flood, car crash, cyclone or earthquake — and alerts an operator in real time with severity, affected area, recommended response units and on-scene weather. Operator corrections flow back into retraining.
+
+Built end to end as a proof of concept for a client and as my Master's thesis: FastAPI backend, PyTorch / YOLOv8 models, React operator UI, PostgreSQL, Docker Compose.
+
+## Highlights
+
+- **98.3% correct verdicts** on a 120-frame disaster audit (up from 81.7%), with **zero wrong-type alerts**.
+- **False alarms on benign scenes cut from 6/10 to 1/10** by adding a "Normal" class and calibrated arbitration rules.
+- **Multi-model verdict pipeline:** a ResNet-18 scene classifier cross-checked by specialist YOLOv8 detectors for fire & smoke, flood and car crashes.
+- **Live operator board** over Server-Sent Events: frames are grouped into incidents, with chime + desktop notification on new ones.
+- **Human-in-the-loop retraining:** "Correct / False alarm" feedback is stored and exported as training data for the next run.
+- **One command to run everything:** `docker compose up --build` starts the API, operator UI, camera simulator and PostgreSQL.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    CAM["Camera simulator / drones"] -- "POST /ingest" --> V
+    OP["Operator UI<br/>React 19 + Tailwind"] -- "POST /analyze" --> V
+
+    subgraph BE["FastAPI backend"]
+        direction TB
+        V["Verdict pipeline<br/>classifier + specialists + rules"]
+        G["Incident grouping<br/>camera + class, 60 s window"]
+        V --> G
+    end
+
+    G -- "SSE incident stream" --> OP
+    OP -- "Correct / False alarm" --> G
+
+    V --> M1["ResNet-18 scene classifier<br/>6 classes"]
+    V --> M2["YOLOv8 fire & smoke"]
+    V --> M3["YOLOv8-seg flood"]
+    V --> M4["YOLOv8 car crash"]
+    V --> WX["OpenWeather"]
+    G --> DB[("PostgreSQL<br/>cameras, analyses, incidents, feedback")]
+    G --> FS[("Evidence images<br/>content-addressed")]
+    G -.-> RT["fine_tune_images/<br/>retraining with train_v3.py"]
+```
 
 
 ---
@@ -228,7 +274,7 @@ APP_CORS_ORIGINS='["https://my-demo.example"]' \
 | POST | `/api/v1/detect/carcrash` | Accident bbox + severity + crews | YOLOv8 · accident |
 | POST | `/api/v1/analyze` | Full pipeline: classify + all specialists + verdict | all of the above |
 | GET | `/api/v1/weather` | Current weather at `lat,lon` + disaster-aware risk note | OpenWeather proxy |
-| POST | `/api/v1/drone/upload` | Stub (501) for the Raport-3 drone upload spec | — |
+| POST | `/api/v1/drone/upload` | Reserved for authenticated drone uploads (returns 501 for now) | — |
 
 All `/detect*` and `/classify` accept `multipart/form-data` with a single `file` field.
 
@@ -302,6 +348,18 @@ curl -sS -X POST -F "file=@some_photo.jpg" \
   http://127.0.0.1:8000/api/v1/classify | python3 -m json.tool
 ```
 
+### Tests and linting
+
+```bash
+pip install pytest ruff
+ruff check app tests model      # lint (config in pyproject.toml)
+pytest                          # API + incident-grouping tests
+
+cd frontend && npm run lint && npm run build
+```
+
+The test suite needs neither the trained weights nor PostgreSQL: model paths point at missing files (endpoints degrade to 503, as in production) and the database is a temporary SQLite file. GitHub Actions runs the same checks on every push and pull request.
+
 ---
 
 ## Troubleshooting
@@ -314,7 +372,6 @@ curl -sS -X POST -F "file=@some_photo.jpg" \
 | Frontend can't reach the backend | Check `VITE_API_BASE`; default expects `127.0.0.1:8000`. Also check the backend `APP_CORS_ORIGINS` includes the frontend origin. |
 | Weather panel says "not configured" / endpoint returns 503 | Set `OPENWEATHER_API_KEY` in the root `.env` (see `.env.example`) and restart the backend. A brand-new key can return 401 for ~10 min–2 h until OpenWeather activates it. |
 | `npm install` fails on package-lock conflicts | `rm -rf node_modules package-lock.json && npm install` |
-| `git push` says "Permission denied" | The repo is on GitHub `Nica880/natural-disaster-app`; make sure the credentials in your keychain match that account. |
 
 ---
 

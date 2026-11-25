@@ -1,5 +1,7 @@
 # Raport de cercetare: Sistem AI pentru detectarea și analiza dezastrelor naturale
 
+> **Notă:** acest raport descrie prima versiune a prototipului. Unele fișiere menționate (`fine_tune.py`, `test_api.py`, `frontend_api/`) au fost între timp înlocuite de `model/train_v3.py`, suita de teste din `tests/` și interfața React din `frontend/`. Arhitectura actuală este descrisă în [README](../README.md).
+
 Autor: Nicanor Mihăilă  
 Data: 1 februarie 2026
 

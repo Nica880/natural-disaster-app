@@ -6,13 +6,11 @@ Override any field at runtime via environment variables, e.g.:
 """
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

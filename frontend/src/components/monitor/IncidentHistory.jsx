@@ -22,9 +22,10 @@ export default function IncidentHistory({ refreshSignal, onOpen }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
 
+  // The spinner is switched on by the click that opens the panel; refetches
+  // triggered by `refreshSignal` update the list in place without flashing it.
   useEffect(() => {
     if (!open) return
-    setLoading(true)
     api.incidentHistory()
       .then(data => setItems(Array.isArray(data) ? data : []))
       .catch(() => setItems([]))
@@ -35,7 +36,7 @@ export default function IncidentHistory({ refreshSignal, onOpen }) {
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { if (!open) setLoading(true); setOpen(o => !o) }}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
       >
         <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
