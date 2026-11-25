@@ -14,11 +14,11 @@ Measured history on the 120-frame set (24 x 5 cameras):
   + v2 classifier (train_v2.py, 99.2% test) ...... 115/120 (95.8%)
   + HIGH_CONFIDENCE_THRESHOLD recalibrated 0.75 .. 119/120 (99.2%, 0 wrong-type)
 """
+import logging
 import sys
 import warnings
-import logging
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 logging.getLogger("ultralytics").setLevel(logging.ERROR)
@@ -30,10 +30,11 @@ for cand in (_HERE.parent, Path("/app")):
         sys.path.insert(0, str(cand))
         break
 
-from PIL import Image                              # noqa: E402
-from app.config import get_settings                # noqa: E402
-from app.api.deps import ModelRegistry, MAX_IMAGE_SIDE  # noqa: E402
-from app.api.routes.analyze import analyze         # noqa: E402
+from PIL import Image  # noqa: E402
+
+from app.api.deps import MAX_IMAGE_SIDE, ModelRegistry  # noqa: E402
+from app.api.routes.analyze import analyze  # noqa: E402
+from app.config import get_settings  # noqa: E402
 
 GT = {
     "cam-accident":   "Car Crash",

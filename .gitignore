@@ -61,3 +61,10 @@ yarn-error.log*
 
 # Runtime evidence-image store (content-addressed, written by the backend)
 data/
+
+# Operator-correction images (written at runtime, merged by model/train_v3.py)
+fine_tune_images/*
+!fine_tune_images/README.md
+
+# Local AI-assistant / editor settings
+.claude/

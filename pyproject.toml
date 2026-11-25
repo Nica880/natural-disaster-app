@@ -1,0 +1,24 @@
+[project]
+name = "raid"
+version = "0.2.0"
+description = "RAID: Real-time Aerial Incident Detection (FastAPI + PyTorch/YOLOv8 backend)"
+requires-python = ">=3.9"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+extend-exclude = ["notebooks", "frontend", "camera_sim"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = [
+    "B008",  # FastAPI's Depends()/File() defaults are idiomatic
+    "E501",  # long log/notes strings are kept on one line for grep-ability
+    "E701",  # aligned one-line threshold ladders (severity tiers) read better
+    "E702",
+    "E741",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

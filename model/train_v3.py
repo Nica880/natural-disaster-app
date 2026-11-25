@@ -99,7 +99,7 @@ def remapped_fine_tune():
     return ft
 
 train_sets = [main_train, normal_split("train", train_tf)]
-if FINE_TUNE.is_dir() and any(FINE_TUNE.iterdir()):
+if FINE_TUNE.is_dir() and any(p.is_dir() for p in FINE_TUNE.iterdir()):
     ft = remapped_fine_tune()
     train_sets.append(ft)
     print(f"📥 Merged {len(ft)} operator-collected hard cases")

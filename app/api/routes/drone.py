@@ -1,4 +1,4 @@
-"""Drone upload endpoint — spec'd in Raport 3 (token auth + GPS metadata
+"""Drone upload endpoint — specified in the project's research report (token auth + GPS metadata
 + webhook confirmation). Stubbed here; returns 501 until implemented.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ async def upload(
 ):
     """Accepts an image + GPS metadata from a drone.
 
-    NOT YET IMPLEMENTED — this endpoint is reserved per the Raport 3 spec.
+    NOT YET IMPLEMENTED — this endpoint is reserved per the project's drone-upload spec.
     Once built it will: validate the bearer token, persist the file +
     metadata, kick off async analysis, and fire a webhook on completion.
     """

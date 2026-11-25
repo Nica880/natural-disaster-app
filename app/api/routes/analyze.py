@@ -26,7 +26,6 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import ModelRegistry, get_registry, upload_image
 from app.db import get_db
-from app.services import repository
 from app.schemas.responses import (
     AnalyzeResponse,
     CarCrashDetection,
@@ -40,6 +39,7 @@ from app.schemas.responses import (
     ResourceRecommendation,
     Verdict,
 )
+from app.services import repository
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["analyze"])
